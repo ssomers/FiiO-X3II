@@ -16,22 +16,6 @@ func BufioTell(f *os.File, buf *bufio.Reader) (int64, error) {
 	return apos, nil
 }
 
-var problems = 10
-
-func whereAreWe(i int64, f *os.File, buf *bufio.Reader) {
-	apos, err := BufioTell(f, buf)
-	if err != nil {
-		panic(err)
-	}
-	if i != apos {
-		log.Printf("%8d=%d\n", i, apos)
-		problems--
-		if problems == 0 {
-			log.Fatalln("too many problems")
-		}
-	}
-}
-
 func main() {
 	f, err := os.Open(os.Args[0])
 	if err != nil {
@@ -42,8 +26,20 @@ func main() {
 	}()
 	buf := bufio.NewReader(f)
 	log.Println("Start...")
+	problems := 10
 	for i := int64(0); ; i++ {
-		whereAreWe(i, f, buf)
+		apos, err := BufioTell(f, buf)
+		if err != nil {
+			panic(err)
+		}
+		if i != apos {
+			log.Printf("%8d=%d\n", i, apos)
+			problems--
+			if problems == 0 {
+				log.Fatalln("too many problems")
+			}
+		}
+
 		_, err = buf.ReadByte()
 		if err == io.EOF {
 			log.Println("Done.")
