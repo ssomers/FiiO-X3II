@@ -119,6 +119,14 @@ func main() {
 		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &disc{cent, radius, 0, 0}, image.ZP, draw.Src)
 	})
 
+	colors := []color.Color{
+		color.RGBA{0x66, 0x99, 0, 0xFF},
+		color.RGBA{0x99, 0xFF, 0, 0xFF},
+		color.RGBA{0x00, 0x00, 0x99, 0xFF},
+		color.RGBA{0x33, 0x33, 0x33, 0xFF},
+		color.RGBA{0x99, 0xFF, 0, 0xFF},
+		color.RGBA{0x66, 0x99, 0, 0xFF},
+	}
 	generate(128, 128, "litegui\\theme1\\theme\\theme_%d.png", 1, 6, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		outerradius := 64.0
 		innerradius := 56.0
@@ -130,20 +138,7 @@ func main() {
 			if j == i {
 				ai, bi = b, a
 			}
-			var fg color.Color
-			if j%2 == 0 {
-				fg = color.RGBA{
-					0x99,
-					0xFF,
-					0,
-					0xFF}
-			} else {
-				fg = color.RGBA{
-					0x66,
-					0x99,
-					0,
-					0xFF}
-			}
+			var fg = colors[j-1]
 			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &disc{cent, outerradius, a, b}, image.ZP, draw.Over)
 		}
 		draw.DrawMask(img, rect, &image.Uniform{color.RGBA{0, 0, 0, 0xFF}}, image.ZP, &disc{cent, innerradius, ai, bi}, image.ZP, draw.Over)
