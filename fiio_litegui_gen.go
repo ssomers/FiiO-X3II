@@ -108,9 +108,9 @@ func main() {
 		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &disc{cent, radius, 0, 0}, image.ZP, draw.Src)
 	})
 
-	generate(16, 16, "litegui\\theme1\\music_update\\%02d.png", 0, 11, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
-		f := math.Sin(float64(i) / 12.0 * math.Pi)
-		radius := 8 * f
+	generate(32, 32, "litegui\\theme1\\music_update\\%02d.png", 0, 11, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+		f := math.Sin(float64(i+1) / 12.5 * math.Pi)
+		radius := 16 * f
 		fg := color.RGBA{
 			0x99,
 			0xFF,
