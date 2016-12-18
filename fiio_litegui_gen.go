@@ -9,12 +9,13 @@ import (
 	"image/png"
 	"math"
 	"os"
+	"path/filepath"
 )
 
 type slice struct {
-	center         image.Point
-	radius         float64
-	angleA, angleB float64 // start & end angle of slice in radians
+	center                   image.Point
+	innerradius, outerradius float64
+	angleA, angleB           float64 // start & end angle of slice in radians
 }
 
 func (*slice) ColorModel() color.Model {
@@ -22,7 +23,11 @@ func (*slice) ColorModel() color.Model {
 }
 
 func (d *slice) Bounds() image.Rectangle {
-	rr := int(math.Ceil(d.radius))
+	if d.innerradius > d.outerradius {
+		fmt.Println(d.innerradius, " > ", d.outerradius)
+		os.Exit(1)
+	}
+	rr := int(math.Ceil(d.outerradius))
 	return image.Rect(
 		d.center.X-rr,
 		d.center.Y-rr,
@@ -35,7 +40,7 @@ func sqr(f float64) float64 { return f * f }
 func (d *slice) At(x, y int) color.Color {
 	xx := float64(x - d.center.X)
 	yy := float64(y - d.center.Y)
-	if sqr(xx)+sqr(yy) > sqr(d.radius) {
+	if rr := sqr(xx) + sqr(yy); rr < sqr(d.innerradius) || rr > sqr(d.outerradius) {
 		return color.Transparent
 	}
 	if d.angleA == d.angleB {
@@ -53,14 +58,23 @@ func (d *slice) At(x, y int) color.Color {
 
 type generator func(i int, rect image.Rectangle, cent image.Point, img draw.Image)
 
-func generate(width int, height int, fname string, first int, last int, jpg *jpeg.Options, gen generator) {
+func generate(width int, height int, fnamePattern string, first int, last int, jpg *jpeg.Options, gen generator) {
 	rect := image.Rect(0, 0, width, height)
 	cent := image.Pt(width/2, height/2)
 	// bg := color.Black
 	// pal := color.Palette([]color.Color{bg, fg})
 	// img := image.NewPaletted(rect, pal)
+	err := os.MkdirAll(filepath.Dir(fnamePattern), os.ModeDir)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 	for i := first; i <= last; i++ {
-		out, err := os.Create(fmt.Sprintf(fname, i))
+		fname := fnamePattern
+		if first < last {
+			fname = fmt.Sprintf(fnamePattern, i)
+		}
+		out, err := os.Create(fname)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -87,36 +101,42 @@ func main() {
 		for c := 0; c < i+1; c++ {
 			f1 := float64(i+1-c) / 46.0
 			f2 := math.Max(0, float64(46-2*c)) / 46.0
-			radius := 333 * f1
+			var s slice
+			s.center = cent
+			s.outerradius = 333 * f1
 			fg := color.RGBA{
 				uint8(math.Ceil(f2*0x90)) + 0x09,
 				uint8(math.Ceil(f2*0xF0)) + 0x0F,
 				0,
 				0xFF}
-			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &slice{cent, radius, 0, 0}, image.ZP, draw.Over)
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Over)
 		}
 	})
 
 	generate(320, 240, "litegui\\boot_animation\\shutdown%d.jpg", 0, 17, &jpeg.Options{Quality: 10}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		f := float64(18-i) / 18.0
-		radius := 120 * f
 		fg := color.RGBA{
 			uint8(math.Ceil(f*0x90)) + 0x09,
 			uint8(math.Ceil(f*0xF0)) + 0x0F,
 			0,
 			0xFF}
-		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &slice{cent, radius, 0, 0}, image.ZP, draw.Src)
+		var s slice
+		s.center = cent
+		s.outerradius = 120 * f
+		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
 	})
 
 	generate(32, 32, "litegui\\theme1\\music_update\\%02d.png", 0, 11, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		f := math.Sin(float64(i+1) / 12.5 * math.Pi)
-		radius := 16 * f
 		fg := color.RGBA{
 			0x99,
 			0xFF,
 			0,
 			0xFF}
-		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &slice{cent, radius, 0, 0}, image.ZP, draw.Src)
+		var s slice
+		s.center = cent
+		s.outerradius = 16 * f
+		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
 	})
 
 	colors := []color.Color{
@@ -132,20 +152,29 @@ func main() {
 		innerradius := 60.0
 		iconradius := 48.0
 		cutoffradius := 16.0
-		var ai, bi, ci float64 // start, end and center angle of slice in radians
+		var ci float64 // center angle of slice in radians
 		for j := 1; j <= 6; j++ {
 			a := (float64((9-j)%8) - 4.0) / 4.0 * math.Pi
 			c := (float64((9-j)%8) - 3.5) / 4.0 * math.Pi
 			b := (float64((9-j)%8) - 3.0) / 4.0 * math.Pi
 			if j == i {
-				ai, bi = b, a
 				ci = c
 			}
 			var fg = colors[j-1]
-			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &slice{cent, outerradius, a, b}, image.ZP, draw.Over)
+			var s slice
+			s.center = cent
+			s.outerradius = outerradius
+			if j != i {
+				s.innerradius = innerradius
+			}
+			s.angleA = a
+			s.angleB = b
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Over)
 		}
-		draw.DrawMask(img, rect, &image.Uniform{color.RGBA{0, 0, 0, 0xFF}}, image.ZP, &slice{cent, innerradius, ai, bi}, image.ZP, draw.Over)
-		draw.DrawMask(img, rect, &image.Uniform{color.RGBA{0x99, 0x99, 0x99, 0xFF}}, image.ZP, &slice{cent, cutoffradius, 0, 0}, image.ZP, draw.Over)
+		var s slice
+		s.center = cent
+		s.outerradius = cutoffradius
+		draw.DrawMask(img, rect, &image.Uniform{color.RGBA{0x99, 0x99, 0x99, 0xFF}}, image.ZP, &s, image.ZP, draw.Over)
 
 		iconfilename := fmt.Sprintf("theme_icon_%d.png", i)
 		iconreader, err := os.Open(iconfilename)
@@ -161,5 +190,36 @@ func main() {
 		center.X = -64 - int(math.Cos(ci)*iconradius+0.5) + icon.Bounds().Max.X/2
 		center.Y = -64 + int(math.Sin(ci)*iconradius+0.5) + icon.Bounds().Max.Y/2
 		draw.Draw(img, rect, icon, center, draw.Over)
+	})
+
+	generate(112, 112, "litegui\\theme1\\adjust\\volume_scale_focus.png", 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+		steps := 120
+		var s slice
+		s.center = cent
+		s.outerradius = 56.0
+		s.innerradius = 48.0
+		for j := 0; j < steps; j++ {
+			// clockwise to corner, starting slightly before 12 o'clock
+			k := float64(steps/4 - j)
+			a := (k + 0) / float64(steps) * 2.0 * math.Pi
+			b := (k + 1) / float64(steps) * 2.0 * math.Pi
+			if a < -math.Pi {
+				a += 2 * math.Pi
+			}
+			if b < -math.Pi {
+				b += 2 * math.Pi
+			}
+			var fg color.Color
+			if j < 100 {
+				c := 1 - float64(99-j)*0.007
+				fg = color.RGBA{uint8(math.Ceil(c * 0x99)), uint8(math.Ceil(c * 0xFF)), 0x00, 0xFF} // topbar_volume_color
+			} else {
+				c := 1 - float64(j-100)/20.0
+				fg = color.RGBA{0xFF, uint8(math.Ceil(c * 0x82)), uint8(math.Ceil(0x34)), 0xFF} // topbar_volume_warnning_color
+			}
+			s.angleA = a
+			s.angleB = b
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Over)
+		}
 	})
 }
