@@ -8,15 +8,21 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 )
 
-const verticalMargin = 22
-const heightVisible = 170
+const nameIn = "cover"
+const nameOut = "folder"
+const verticalMargin = 23
+const heightVisible = 169
 const widthOut = 320
 const heightOut = verticalMargin + heightVisible + verticalMargin
-const jpegQuality = 75
+const jpegQuality = 95
+const outFmt = "%-79.79s"
+
+var kept, made int
 
 // return value io.EOF means different contents
 func equalFileContents(file1, file2 string) error {
@@ -70,18 +76,18 @@ func targetfilename(seqNr int) string {
 	if seqNr > 0 {
 		suffix = fmt.Sprintf("(%d)", seqNr)
 	}
-	return "cover" + suffix + ".jpg"
+	return nameOut + suffix + ".jpg"
 }
 
 func convert(inpath string) {
 	in, err := os.Open(inpath)
 	if err != nil {
-		panic(fmt.Sprintf("%s reading %s", err, inpath))
+		log.Fatalf("%s reading %s", err, inpath)
 	}
 	art, err := jpeg.Decode(in)
 	in.Close()
 	if err != nil {
-		panic(fmt.Sprintf("%s reading %s", err, inpath))
+		log.Fatalf("%s reading %s", err, inpath)
 	}
 
 	art = resize.Resize(0, heightVisible, art, resize.Bilinear)
@@ -101,17 +107,17 @@ func convert(inpath string) {
 			break
 		}
 		if !os.IsExist(err) {
-			panic(fmt.Sprintf("%s writing %s", err, outpath))
+			log.Fatalf("%s writing %s", err, outpath)
 		}
 		seqNr++
 	}
 	err = jpeg.Encode(out, img, &jpeg.Options{Quality: jpegQuality})
 	if err != nil {
-		panic(fmt.Sprintf("%s writing %s", err, outpath))
+		log.Fatalf("%s writing %s", err, outpath)
 	}
 	err = out.Close()
 	if err != nil {
-		panic(fmt.Sprintf("%s finishing %s", err, outpath))
+		log.Fatalf("%s finishing %s", err, outpath)
 	}
 
 	var equalTo string
@@ -123,16 +129,18 @@ func convert(inpath string) {
 			break
 		}
 		if err != io.EOF {
-			panic(fmt.Sprintf("%s comparing %s and %s", err, prevOutpath, outpath))
+			log.Fatalf("%s comparing %s and %s", err, prevOutpath, outpath)
 		}
 	}
 	if equalTo == "" {
-		fmt.Println("Made", outpath)
+		fmt.Printf(outFmt+"\n", "Made "+outpath)
+		made++
 	} else {
-		fmt.Println("Kept", equalTo)
+		fmt.Printf(outFmt+"\r", "Kept "+equalTo)
+		kept++
 		err = os.Remove(outpath)
 		if err != nil {
-			panic(fmt.Sprintf("%s removing %", err, outpath))
+			log.Fatalf("%s removing %", err, outpath)
 		}
 	}
 }
@@ -147,9 +155,10 @@ func main() {
 			if !fi.Mode().IsRegular() {
 				return nil
 			}
-			match, err := filepath.Match("folder.jpg", fi.Name())
+			match, err := filepath.Match(nameIn+".jpg", fi.Name())
 			if err != nil {
 				panic(err)
+				os.Exit(1)
 			}
 			if !match {
 				return nil
@@ -158,4 +167,5 @@ func main() {
 			return nil
 		})
 	}
+	fmt.Printf(outFmt+"\n", fmt.Sprintf("%d file(s) made, %d file(s) existed already.", made, kept))
 }
