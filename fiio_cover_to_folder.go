@@ -140,7 +140,7 @@ func convert(inpath string) {
 		kept++
 		err = os.Remove(outpath)
 		if err != nil {
-			log.Fatalf("%s removing %", err, outpath)
+			log.Fatalf("%s removing %s", err, outpath)
 		}
 	}
 }
