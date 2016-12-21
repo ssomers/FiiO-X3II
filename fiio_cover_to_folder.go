@@ -8,7 +8,6 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 )
@@ -22,9 +21,10 @@ const heightOut = verticalMargin + heightVisible + verticalMargin
 const jpegQuality = 95
 const outFmt = "%-79.79s"
 
-var kept, made int
-
-// return value io.EOF means different contents
+// Compare contents of file to some contents we need.
+// Returns nil if the contents match,
+// returns io.EOF if file has different contents,
+// returns genuine error if file cannot be read.
 func compareFileContents(filename string, refContents []byte) error {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -34,30 +34,22 @@ func compareFileContents(filename string, refContents []byte) error {
 	actualContents := make([]byte, len(refContents))
 	actualLength, err := f.Read(actualContents)
 	if err != nil {
-		return err // could also be io.EOF
+		return err // file cannot be read or (io.EOF) is empty
 	}
 	if actualLength != len(refContents) {
-		return io.EOF
+		return io.EOF // file has less data
 	}
 	_, err = f.Read(actualContents)
 	if err == nil {
 		return io.EOF // file has more data
 	}
 	if err != io.EOF {
-		return err
+		return err // weird
 	}
 	if !bytes.Equal(actualContents, refContents) {
 		return io.EOF // file has different data
 	}
 	return nil
-}
-
-func targetfilename(seqNr int) string {
-	suffix := ""
-	if seqNr > 0 {
-		suffix = fmt.Sprintf("(%d)", seqNr)
-	}
-	return nameOut + suffix + ".jpg"
 }
 
 func readArt(inpath string) (image.Image, error) {
@@ -73,7 +65,7 @@ func readArt(inpath string) (image.Image, error) {
 	return art, nil
 }
 
-func convertArt(art image.Image) []byte {
+func convertArt(art image.Image) ([]byte, error) {
 	art = resize.Resize(0, heightVisible, art, resize.Bilinear)
 	outrect := image.Rect(0, 0, widthOut, heightOut)
 	horizontalMargin := (widthOut - art.Bounds().Dx()) / 2
@@ -83,69 +75,101 @@ func convertArt(art image.Image) []byte {
 	jpgContents := bytes.NewBuffer(make([]byte, 0, 32768))
 	err := jpeg.Encode(jpgContents, img, &jpeg.Options{Quality: jpegQuality})
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return jpgContents.Bytes()
+	return jpgContents.Bytes(), nil
 }
 
-func writeJpg(jpgContents []byte, dir string) {
-	var outpath string
-	var seqNr int
-	var found bool
-	for {
+func targetfilename(seqNr int) string {
+	suffix := ""
+	if seqNr > 0 {
+		suffix = fmt.Sprintf("(%d)", seqNr)
+	}
+	return nameOut + suffix + ".jpg"
+}
+
+func findJpg(jpgContents []byte, dir string) (outpath string, found bool, finalErr error) {
+	for seqNr := 0; ; seqNr++ {
 		outpath = filepath.Join(dir, targetfilename(seqNr))
 		err := compareFileContents(outpath, jpgContents)
 		if err == nil {
 			found = true
-			break
+			return
 		}
 		if os.IsNotExist(err) {
-			break
+			return // past highest sequence number (or there's a gap)
 		}
 		if err != io.EOF {
-			log.Fatalf("%s comparing with %s", err, outpath)
+			finalErr = err
+			return // trouble
 		}
-		seqNr++
+	}
+}
+
+type Writer struct {
+	kept, made int
+}
+
+func (w *Writer) findOrWriteJpg(jpgContents []byte, dir string) error {
+	outpath, found, err := findJpg(jpgContents, dir)
+	if err != nil {
+		return err
 	}
 	if found {
 		fmt.Printf(outFmt+"\r", "Kept "+outpath)
-		kept++
+		w.kept++
 	} else {
 		out, err := os.OpenFile(outpath, os.O_CREATE|os.O_EXCL, 0666)
 		if err != nil {
-			log.Fatalf("%s creating %s", err, outpath)
+			return err
 		}
 		defer out.Close()
 		out.Write(jpgContents)
 		fmt.Printf(outFmt+"\n", "Made "+outpath)
-		made++
+		w.made++
 	}
+	return nil
+}
+
+func (w *Writer) visitFile(path string) error {
+	art, err := readArt(path)
+	if err != nil {
+		return err
+	}
+	jpgContents, err := convertArt(art)
+	if err != nil {
+		return err
+	}
+	err = w.findOrWriteJpg(jpgContents, filepath.Dir(path))
+	return err
+}
+
+func (w *Writer) visitDir(dir string) error {
+	return filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !fi.Mode().IsRegular() {
+			return nil
+		}
+		match, err := filepath.Match(nameIn+".jpg", fi.Name())
+		if err != nil {
+			return err
+		}
+		if !match {
+			return nil
+		}
+		return w.visitFile(path)
+	})
 }
 
 func main() {
+	var writer Writer
 	for _, dir := range os.Args[1:] {
-		filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
-			if err != nil {
-				log.Printf("walking %s: %s", path, err)
-				return nil
-			}
-			if !fi.Mode().IsRegular() {
-				return nil
-			}
-			match, err := filepath.Match(nameIn+".jpg", fi.Name())
-			if err != nil {
-				log.Fatal(err)
-			}
-			if !match {
-				return nil
-			}
-			art, err := readArt(path)
-			if err != nil {
-				log.Fatalf("%s reading %s", err, path)
-			}
-			writeJpg(convertArt(art), filepath.Dir(path))
-			return nil
-		})
+		err := writer.visitDir(dir)
+		if err != nil {
+			panic(err)
+		}
 	}
-	fmt.Printf(outFmt+"\n", fmt.Sprintf("%d file(s) made, %d file(s) existed already.", made, kept))
+	fmt.Printf(outFmt+"\n", fmt.Sprintf("%d file(s) made, %d file(s) existed already.", writer.made, writer.kept))
 }
