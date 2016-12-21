@@ -165,7 +165,11 @@ func (w *Writer) visitDir(dir string) error {
 
 func main() {
 	var writer Writer
-	for _, dir := range os.Args[1:] {
+	var dirs = []string{"."}
+	if len(os.Args) > 1 {
+		dirs = os.Args[1:]
+	}
+	for _, dir := range dirs {
 		err := writer.visitDir(dir)
 		if err != nil {
 			panic(err)
