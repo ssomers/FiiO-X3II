@@ -199,10 +199,9 @@ func main() {
 		s.outerradius = 56.0
 		s.innerradius = 48.0
 		for j := 0; j < steps; j++ {
-			// clockwise to corner, starting slightly before 12 o'clock
-			k := float64(steps/4 - j)
-			a := (k + 0) / float64(steps) * 2.0 * math.Pi
-			b := (k + 1) / float64(steps) * 2.0 * math.Pi
+			// clockwise, starting slightly before 12 o'clock
+			a := (0.25 - float64(j-0)/float64(steps)) * 2 * math.Pi
+			b := (0.25 - float64(j-1)/float64(steps)) * 2 * math.Pi
 			if a < -math.Pi {
 				a += 2 * math.Pi
 			}
@@ -217,6 +216,30 @@ func main() {
 				c := 1 - float64(j-100)/20.0
 				fg = color.RGBA{0xFF, uint8(math.Ceil(c * 0x82)), uint8(math.Ceil(0x34)), 0xFF} // topbar_volume_warnning_color
 			}
+			s.angleA = a
+			s.angleB = b
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Over)
+		}
+	})
+
+	generate(122, 122, "litegui\\theme1\\adjust\\maxvol_scale_focus.png", 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+		steps := 120
+		var s slice
+		s.center = cent
+		s.outerradius = 56.0
+		s.innerradius = 48.0
+		for j := 1; j < steps; j++ {
+			a := (-0.4 - float64(j+1)/float64(steps)*0.7) * 2 * math.Pi
+			b := (-0.4 - float64(j+0)/float64(steps)*0.7) * 2 * math.Pi
+			if a < -math.Pi {
+				a += 2 * math.Pi
+			}
+			if b < -math.Pi {
+				b += 2 * math.Pi
+			}
+			var fg color.Color
+			c := 1 - float64(steps-j)*0.005
+			fg = color.RGBA{uint8(math.Ceil(c * 0x99)), uint8(math.Ceil(c * 0xFF)), 0x00, 0xFF} // topbar_volume_color
 			s.angleA = a
 			s.angleB = b
 			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Over)
