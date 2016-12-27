@@ -2,9 +2,6 @@
 
 This script embeds scaled down album art in a black border so that the image is entirely visible, not covering  or covered by the player's information, and respecting aspect ratio.
 
-creates folder.jpg files matching cover.jpg files, 
-* [Wrapper for the above  so that the console window stays open](fiio_cover_to_folder.cmd)
-
 Operation:
 
 * The script picks up album art from cover.jpg file, for instance in [Mp3tag](http://www.mp3tag.de/en/) by applying an action group defined with these actions:
@@ -22,6 +19,9 @@ To run:
 * Or to build once, so you can copy the program to another system and run it without the Go environment:
 
     go build -ldflags -s fiio_cover_to_folder.go
+    
+* On Windows, launch a [wrapper](fiio_cover_to_folder.cmd) to avoid the command line and keep the console window open
+
 
 ## customized firmware
 Quite a challenge, probably incomplete steps:
