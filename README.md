@@ -1,13 +1,23 @@
-## album art
-* [Create missing folder.jpg files matching cover.jpg files, scaled down and with a black border so that it is entirely visible, not covering or covered by text, and respecting aspect ratio.](fiio_cover_to_folder.go)
+## fiio_cover_to_folder: shaping album art
+
+This script embeds scaled down album art in a black border so that the image is entirely visible, not covering  or covered by the player's information, and respecting aspect ratio.
+
+creates folder.jpg files matching cover.jpg files, 
 * [Wrapper for the above  so that the console window stays open](fiio_cover_to_folder.cmd)
+
+Operation:
+
+* The script picks up album art from cover.jpg file, for instance in [Mp3tag](http://www.mp3tag.de/en/) by applying an action group defined with these actions:
+ * Export cover to file "cover" (without enabling Export duplicate covers)
+ * Remove fields "PICTURE"
+* Just like Mp3tag, the script doesn't overwrite any files and doesn't write duplicate files. For each cover.jpg, it creates a file folder.jpg if it didn't already exist. If the file does exist, and the contents don't match, the script creates folder(1).jpg or folder(2).jpg etc. instead, and you'll probably want to sort those out.
 
 To run:
 
 * Download and install Go from https://golang.org/dl/
 * On the command line:
 
-    go build -ldflags -s fiio_cover_to_folder.go
+    go run fiio_cover_to_folder.go
 
 * Or to build once, so you can copy the program to another system and run it without the Go environment:
 
