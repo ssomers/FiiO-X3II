@@ -2,3 +2,5 @@ litegui\theme2
 litegui\theme4
 litegui\theme5
 litegui\theme6
+.gitignore
+.xcf

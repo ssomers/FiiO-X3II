@@ -1,7 +1,6 @@
 *.exe
 *.fw
 /litegui
-/changes_exported
 /changes_generated
 /unpacked_*
 /old

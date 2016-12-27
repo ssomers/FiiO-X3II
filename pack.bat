@@ -25,11 +25,11 @@ for %%v in (1.4 2.0) do (
 
     rem Now superimpose partial themes
     for %%t in (2 4 5 6) do (
-        xcopy changes_edited\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/Y
+        xcopy changes_edited\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/Y /EXCLUDE:pack\exclude_source.txt
         if errorlevel 1 pause
     )
     for %%t in (2) do (
-        xcopy changes_exported\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/Y
+        xcopy changes_exported\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/Y /EXCLUDE:pack\exclude_source.txt
         if errorlevel 1 pause
     )
 

@@ -97,7 +97,7 @@ func generate(width int, height int, fnamePattern string, first int, last int, j
 }
 
 func main() {
-	generate(320, 240, "changes_generated\\litegui\\boot_animation\\boot%d.jpg", 0, 45, &jpeg.Options{Quality: 10}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+	generate(320, 240, filepath.Join("changes_generated", "litegui", "boot_animation", "boot%d.jpg"), 0, 45, &jpeg.Options{Quality: 10}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		for c := 0; c < i+1; c++ {
 			f1 := float64(i+1-c) / 46.0
 			f2 := math.Max(0, float64(46-2*c)) / 46.0
@@ -113,7 +113,7 @@ func main() {
 		}
 	})
 
-	generate(320, 240, "changes_generated\\litegui\\boot_animation\\shutdown%d.jpg", 0, 17, &jpeg.Options{Quality: 10}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+	generate(320, 240, filepath.Join("changes_generated", "litegui", "boot_animation", "shutdown%d.jpg"), 0, 17, &jpeg.Options{Quality: 10}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		f := float64(18-i) / 18.0
 		fg := color.RGBA{
 			uint8(math.Ceil(f*0x90)) + 0x09,
@@ -126,7 +126,7 @@ func main() {
 		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
 	})
 
-	generate(32, 32, "changes_generated\\litegui\\theme1\\music_update\\%02d.png", 0, 11, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+	generate(32, 32, filepath.Join("changes_generated", "litegui", "theme1", "music_update", "%02d.png"), 0, 11, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		f := math.Sin(float64(i+1) / 12.5 * math.Pi)
 		fg := color.RGBA{
 			0x99,
@@ -147,7 +147,7 @@ func main() {
 		color.RGBA{0x66, 0x99, 0x00, 0xFF},
 		color.RGBA{0x66, 0x99, 0x00, 0xFF},
 	}
-	generate(128, 128, "changes_generated\\litegui\\theme1\\theme\\theme_%d.png", 1, 6, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+	generate(128, 128, filepath.Join("changes_generated", "litegui", "theme1", "theme", "theme_%d.png"), 1, 6, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		outerradius := 64.0
 		innerradius := 60.0
 		iconradius := 48.0
@@ -176,10 +176,10 @@ func main() {
 		s.outerradius = cutoffradius
 		draw.DrawMask(img, rect, &image.Uniform{color.RGBA{0x99, 0x99, 0x99, 0xFF}}, image.ZP, &s, image.ZP, draw.Over)
 
-		iconfilename := fmt.Sprintf("theme_icon_%d.png", i)
+		iconfilename := filepath.Join("changes_fed", fmt.Sprintf("theme_icon_%d.png", i))
 		iconreader, err := os.Open(iconfilename)
 		if err != nil {
-			panic(err)
+			panic(fmt.Sprintf("%s", err))
 		}
 		defer iconreader.Close()
 		icon, err := png.Decode(iconreader)
@@ -192,7 +192,7 @@ func main() {
 		draw.Draw(img, rect, icon, center, draw.Over)
 	})
 
-	generate(112, 112, "changes_generated\\litegui\\theme1\\adjust\\volume_scale_focus.png", 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+	generate(112, 112, filepath.Join("changes_generated", "litegui", "theme1", "adjust", "volume_scale_focus.png"), 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		steps := 120
 		var s slice
 		s.center = cent
@@ -222,7 +222,7 @@ func main() {
 		}
 	})
 
-	generate(122, 122, "changes_generated\\litegui\\theme1\\adjust\\maxvol_scale_focus.png", 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+	generate(122, 122, filepath.Join("changes_generated", "litegui", "theme1", "adjust", "maxvol_scale_focus.png"), 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		steps := 120
 		var s slice
 		s.center = cent
