@@ -1,5 +1,5 @@
 @echo off
-for %%v in (1.4 2.0) do (
+for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     xcopy unpacked_original_%%v unpacked_tmp /Q/S/I /EXCLUDE:pack\exclude_original.txt
     if errorlevel 1 pause
     rem Copy without themes 2,4,5 and 6, because they need to be superimposed
@@ -10,7 +10,7 @@ for %%v in (1.4 2.0) do (
     if errorlevel 1 pause
     xcopy changes_generated unpacked_tmp /Q/S/Y
     if errorlevel 1 pause
-    for %%n in (number scrollbar theme) do (
+    for %%n in (charge number scrollbar theme usb) do (
         xcopy unpacked_tmp\litegui\theme1\%%n unpacked_tmp\litegui\theme3\%%n /Q/S/I
         if errorlevel 1 pause
     )
@@ -63,7 +63,7 @@ for %%v in (1.4 2.0) do (
     pack\packtools --pack -i unpacked_tmp -o %%v\X3II.fw -m x3ii
     @if errorlevel 1 pause
 
-    if %%v == 2.0 (
+    if %%v == 2.0 if exist pack\eq.ini (
         copy pack\eq.ini unpacked_tmp\str\english\
         if errorlevel 1 pause
         pack\packtools --pack -i unpacked_tmp -o X3II.fw -m x3ii
