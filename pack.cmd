@@ -36,12 +36,21 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     if %%v == 1.4 for %%t in (1 2 3 4 5 6) do (
         mkdir unpacked_tmp\litegui\theme%%t\category\main
         mkdir unpacked_tmp\litegui\theme%%t\m3u\main
-        move unpacked_tmp\litegui\theme%%t\category\menu\playlist*.png unpacked_tmp\litegui\theme%%t\m3u\main\
-        if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\category\menu\playlist*.png
-        for %%n in (album album_s all all_s artist artist_s collect collect_s genre genre_s) do (
+        mkdir unpacked_tmp\litegui\theme%%t\m3u\menu
+        copy changes_edited\litegui\theme1\bg\wallpaper.png unpacked_tmp\litegui\theme%%t\category\menu\bg.png
+        if errorlevel 1 set /P= changes_edited\litegui\bg\wallpaper.png
+        for %%n in (category\menu\line category\menu\line_s m3u\long_menu_bg msg\bg_base msg\dock_insert msg\dock_remove msg\full msg\lock msg\low msg\none number\L number\R playing\black) do (
+            copy changes_edited\litegui\theme1\eq\slider.png unpacked_tmp\litegui\theme%%t\%%n.png
+            if errorlevel 1 set /P= changes_edited\litegui\theme1\eq\slider.png
+        )
+        for %%n in (bg album album_s all all_s artist artist_s collect collect_s genre genre_s) do (
             copy unpacked_tmp\litegui\theme%%t\category\menu\%%n.png unpacked_tmp\litegui\theme%%t\category\main\
             if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\category\menu\%%n.png
         )
+        xcopy unpacked_tmp\litegui\theme%%t\category\menu\playlist*.png unpacked_tmp\litegui\theme%%t\m3u\main\ /Y
+        if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\category\menu\playlist*.png
+        move unpacked_tmp\litegui\theme%%t\category\menu\playlist*.png unpacked_tmp\litegui\theme%%t\m3u\menu\
+        if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\category\menu\playlist*.png
         move unpacked_tmp\litegui\theme%%t\list\collect.png unpacked_tmp\litegui\theme%%t\collect\collect0.png
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\list\collect.png
         move unpacked_tmp\litegui\theme%%t\list\collect_s.png unpacked_tmp\litegui\theme%%t\collect\collect1.png
@@ -54,12 +63,17 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
           del unpacked_tmp\litegui\theme%%t\list\%%n.png
           if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\list\%%n.png
         )
+        for %%n in (recent recent_s) do (
+          del unpacked_tmp\litegui\theme%%t\category\menu\%%n.png
+          if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\category\menu\%%n.png
+        )
         del unpacked_tmp\litegui\theme%%t\play_settings\single_play.png
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\play_settings\single_play.png
         move unpacked_tmp\litegui\theme%%t\playing\playing_menu_add?.png unpacked_tmp\litegui\theme%%t\m3u\
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\playing\playing_menu_add?.png
         del unpacked_tmp\litegui\theme%%t\playing\single_play?.png
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\playing\single_play?.png
+        del unpacked_tmp\litegui\theme%%t\playing\single_play?.png
     )
 
     pack\packtools --pack -i unpacked_tmp -o %%v\X3II.fw -m x3ii
@@ -70,8 +84,8 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
         if errorlevel 1 set /P= pack\eq.ini
         pack\packtools --pack -i unpacked_tmp -o X3II.fw -m x3ii
         if errorlevel 1 pause
-        if exist E: copy X3II.fw E:\
     )
     rmdir /Q/S unpacked_tmp
     if errorlevel 1 set /P= unpacked_tmp
 )
+if exist pack\eq.ini if exist X: copy X3II.fw X:\

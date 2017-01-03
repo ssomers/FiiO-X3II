@@ -2,5 +2,5 @@
 *.fw
 /litegui
 /changes_generated
-/unpacked_*
+/unpacked*
 /old
