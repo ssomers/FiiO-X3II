@@ -135,7 +135,7 @@ func main() {
 			0xFF}
 		var s slice
 		s.center = cent
-		s.outerradius = 16 * f
+		s.outerradius = 8 * f
 		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
 	})
 
@@ -222,27 +222,29 @@ func main() {
 		}
 	})
 
-	generate(122, 122, filepath.Join("changes_generated", "litegui", "theme1", "adjust", "maxvol_scale_focus.png"), 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
-		steps := 120
-		var s slice
-		s.center = cent
-		s.outerradius = 56.0
-		s.innerradius = 48.0
-		for j := 1; j < steps; j++ {
-			a := (-0.4 - float64(j+1)/float64(steps)*0.7) * 2 * math.Pi
-			b := (-0.4 - float64(j+0)/float64(steps)*0.7) * 2 * math.Pi
-			if a < -math.Pi {
-				a += 2 * math.Pi
+	for _, n := range []string{"maxvol", "blktime", "savetime", "sleeptime"} {
+		generate(122, 122, filepath.Join("changes_generated", "litegui", "theme1", "adjust", n+"_scale_focus.png"), 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+			steps := 120
+			var s slice
+			s.center = cent
+			s.outerradius = 56.0
+			s.innerradius = 48.0
+			for j := 1; j < steps; j++ {
+				a := (-0.4 - float64(j+1)/float64(steps)*0.7) * 2 * math.Pi
+				b := (-0.4 - float64(j+0)/float64(steps)*0.7) * 2 * math.Pi
+				if a < -math.Pi {
+					a += 2 * math.Pi
+				}
+				if b < -math.Pi {
+					b += 2 * math.Pi
+				}
+				var fg color.Color
+				c := 1 - float64(steps-j)*0.005
+				fg = color.RGBA{uint8(math.Ceil(c * 0x99)), uint8(math.Ceil(c * 0xFF)), 0x00, 0xFF} // topbar_volume_color
+				s.angleA = a
+				s.angleB = b
+				draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Over)
 			}
-			if b < -math.Pi {
-				b += 2 * math.Pi
-			}
-			var fg color.Color
-			c := 1 - float64(steps-j)*0.005
-			fg = color.RGBA{uint8(math.Ceil(c * 0x99)), uint8(math.Ceil(c * 0xFF)), 0x00, 0xFF} // topbar_volume_color
-			s.angleA = a
-			s.angleB = b
-			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Over)
-		}
-	})
+		})
+	}
 }
