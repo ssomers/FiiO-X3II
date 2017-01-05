@@ -63,7 +63,7 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
         )
     )
     if %%v == 2.0 for %%t in (1 2 3 4 5 6) do (
-        for %%n in (category\menu\bg list\all playing\black) do (
+        for %%n in (list\all playing\black) do (
             del unpacked_tmp\litegui\theme%%t\%%n.png
             if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\%%n.png
         )
