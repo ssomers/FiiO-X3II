@@ -24,13 +24,11 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     if errorlevel 1 set /P= unpacked_tmp\litegui\theme1
 
     rem Now superimpose partial themes
-    for %%t in (2 4 5 6) do (
-        xcopy changes_edited\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/Y /EXCLUDE:pack\exclude_source.txt
-        if errorlevel 1 set /P= changes_edited\litegui\theme%%t
-    )
-    for %%t in (2) do (
-        xcopy changes_exported\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/Y /EXCLUDE:pack\exclude_source.txt
-        if errorlevel 1 set /P= changes_exported\litegui\theme%%t
+    for %%t in (2 4 5 6) do for %%c in (changes_edited changes_exported) do (
+        if exist %%c\litegui\theme%%t (
+            xcopy %%c\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/Y /EXCLUDE:pack\exclude_source.txt
+            if errorlevel 1 set /P= %%c\litegui\theme%%t
+        )
     )
 
     if %%v == 1.4 for %%t in (1 2 3 4 5 6) do (
@@ -39,7 +37,7 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
         mkdir unpacked_tmp\litegui\theme%%t\m3u\menu
         copy changes_edited\litegui\theme1\bg\wallpaper.png unpacked_tmp\litegui\theme%%t\category\menu\bg.png
         if errorlevel 1 set /P= changes_edited\litegui\bg\wallpaper.png
-        for %%n in (category\menu\line category\menu\line_s m3u\long_menu_bg msg\bg_base msg\dock_insert msg\dock_remove msg\full msg\lock msg\low msg\none number\L number\R playing\black) do (
+        for %%n in (category\menu\line category\menu\line_s m3u\long_menu_bg msg\bg_base msg\dock_insert msg\dock_remove msg\full msg\lock msg\low msg\none number\L number\R) do (
             copy changes_edited\litegui\theme1\eq\slider.png unpacked_tmp\litegui\theme%%t\%%n.png
             if errorlevel 1 set /P= changes_edited\litegui\theme1\eq\slider.png
         )
@@ -57,23 +55,18 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\list\collect_s.png
         move unpacked_tmp\litegui\theme%%t\list\m3u.png unpacked_tmp\litegui\theme%%t\m3u\playlist.png
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\list\m3u.png unpacked_tmp\litegui\theme%%t\m3u\playlist.png
-        del unpacked_tmp\litegui\theme%%t\list\m3u_s.png
-        if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\list\m3u_s.png
-        for %%n in (album_s artist_s dir_s genre_s recent recent_s) do (
-          del unpacked_tmp\litegui\theme%%t\list\%%n.png
-          if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\list\%%n.png
-        )
-        for %%n in (recent recent_s) do (
-          del unpacked_tmp\litegui\theme%%t\category\menu\%%n.png
-          if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\category\menu\%%n.png
-        )
-        del unpacked_tmp\litegui\theme%%t\play_settings\single_play.png
-        if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\play_settings\single_play.png
         move unpacked_tmp\litegui\theme%%t\playing\playing_menu_add?.png unpacked_tmp\litegui\theme%%t\m3u\
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\playing\playing_menu_add?.png
-        del unpacked_tmp\litegui\theme%%t\playing\single_play?.png
-        if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\playing\single_play?.png
-        del unpacked_tmp\litegui\theme%%t\playing\single_play?.png
+        for %%n in (category\menu\recent category\menu\recent_s list\album_s list\artist_s list\dir_s list\genre_s list\m3u_s list\recent list\recent_s play_settings\single_play playing\single_play0 playing\single_play1)do (
+          del unpacked_tmp\litegui\theme%%t\%%n.png
+          if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\%%n.png
+        )
+    )
+    if %%v == 2.0 for %%t in (1 2 3 4 5 6) do (
+        for %%n in (category\menu\bg list\all playing\black) do (
+            del unpacked_tmp\litegui\theme%%t\%%n.png
+            if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\%%n.png
+        )
     )
 
     pack\packtools --pack -i unpacked_tmp -o %%v\X3II.fw -m x3ii

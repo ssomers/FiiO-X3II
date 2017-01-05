@@ -129,8 +129,8 @@ func main() {
 	generate(32, 32, filepath.Join("changes_generated", "litegui", "theme1", "music_update", "%02d.png"), 0, 11, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		f := math.Sin(float64(i+1) / 12.5 * math.Pi)
 		fg := color.RGBA{
-			0x99,
 			0xFF,
+			0x99,
 			0,
 			0xFF}
 		var s slice
