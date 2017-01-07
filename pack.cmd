@@ -81,4 +81,8 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     rmdir /Q/S unpacked_tmp
     if errorlevel 1 set /P= unpacked_tmp
 )
-if exist pack\eq.ini if exist X: copy X3II.fw X:\
+if exist pack\eq.ini if exist X: (
+    echo copy X3II.fw X:\
+    copy X3II.fw X:\
+    if errorlevel 1 set /P= X:
+)
