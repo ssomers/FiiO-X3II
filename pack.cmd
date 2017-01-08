@@ -1,4 +1,5 @@
 @echo off
+if exist unpacked_tmp rmdir /Q/S unpacked_tmp
 for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     xcopy unpacked_original_%%v unpacked_tmp /Q/S/I /EXCLUDE:pack\exclude_original.txt
     if errorlevel 1 set /P= unpacked_original_%%v
