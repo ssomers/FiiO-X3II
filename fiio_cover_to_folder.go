@@ -14,8 +14,8 @@ import (
 
 const nameIn = "cover"
 const nameOut = "folder"
-const verticalMargin = 20
-const heightVisible = 180
+const verticalMargin = 0
+const heightVisible = 200
 const widthOut = 320
 const heightOut = verticalMargin + heightVisible + verticalMargin
 const jpegQuality = 95
