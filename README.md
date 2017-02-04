@@ -4,10 +4,10 @@ This script embeds scaled down album art in a black border so that the image is 
 
 Operation:
 
-* The script picks up album art from cover.jpg file, for instance in [Mp3tag](http://www.mp3tag.de/en/) by applying an action group defined with these actions:
+* The script picks up album art from cover.jpg files. To extract these from the embedded art in audio files, for instance in [Mp3tag](http://www.mp3tag.de/en/) by applying an action group defined with these actions:
  * Export cover to file "cover" (without enabling Export duplicate covers)
  * Remove fields "PICTURE"
-* Just like Mp3tag, the script doesn't overwrite any files and doesn't write duplicate files. For each cover.jpg, it creates a file folder.jpg if it didn't already exist. If the file does exist, and the contents don't match, the script creates folder(1).jpg or folder(2).jpg etc. instead, and you'll probably want to sort those out.
+* Just like Mp3tag, the script doesn't overwrite any files and doesn't write duplicate files. For each cover.jpg, it creates a file folder.jpg if it didn't already exist. If the file does exist, and the contents don't match, the script creates folder(1).jpg or folder(2).jpg etc. instead, and you need to sort those out.
 
 To run:
 
