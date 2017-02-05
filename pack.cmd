@@ -7,8 +7,6 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     rem on the customization of theme1 resp. theme3
     xcopy changes_edited unpacked_tmp /Q/S/Y /EXCLUDE:pack\exclude_partial.txt
     if errorlevel 1 set /P= changes_edited
-    xcopy changes_exported unpacked_tmp /Q/S/Y /EXCLUDE:pack\exclude_partial.txt
-    if errorlevel 1 set /P= changes_exported
     xcopy changes_generated unpacked_tmp /Q/S/Y
     if errorlevel 1 set /P= changes_generated
     for %%n in (charge number scrollbar theme usb) do (
@@ -25,10 +23,10 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     if errorlevel 1 set /P= unpacked_tmp\litegui\theme1
 
     rem Now superimpose partial themes
-    for %%t in (2 4 5 6) do for %%c in (changes_edited changes_exported) do (
-        if exist %%c\litegui\theme%%t (
-            xcopy %%c\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/Y /EXCLUDE:pack\exclude_source.txt
-            if errorlevel 1 set /P= %%c\litegui\theme%%t
+    for %%t in (2 4 5 6) do (
+        if exist changes_edited\litegui\theme%%t (
+            xcopy changes_edited\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/Y /EXCLUDE:pack\exclude_source.txt
+            if errorlevel 1 set /P= changes_edited changes_edited\litegui\theme%%t
         )
     )
 
