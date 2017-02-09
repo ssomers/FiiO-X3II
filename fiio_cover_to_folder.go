@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/draw"
 	"image/jpeg"
+	"image/png"
 	"io"
 	"os"
 	"path/filepath"
@@ -52,13 +53,15 @@ func compareFileContents(filename string, refContents []byte) error {
 	return nil
 }
 
-func readArt(inpath string) (image.Image, error) {
+type Decoder func(io.Reader) (image.Image, error)
+
+func readArt(inpath string, decode Decoder) (image.Image, error) {
 	in, err := os.Open(inpath)
 	if err != nil {
 		return nil, err
 	}
 	defer in.Close()
-	art, err := jpeg.Decode(in)
+	art, err := decode(in)
 	if err != nil {
 		return nil, err
 	}
@@ -131,8 +134,8 @@ func (w *Writer) findOrWriteJpg(jpgContents []byte, dir string) error {
 	return nil
 }
 
-func (w *Writer) visitFile(path string) error {
-	art, err := readArt(path)
+func (w *Writer) visitFile(path string, decode Decoder) error {
+	art, err := readArt(path, decode)
 	if err != nil {
 		return err
 	}
@@ -152,14 +155,16 @@ func (w *Writer) visitDir(dir string) error {
 		if !fi.Mode().IsRegular() {
 			return nil
 		}
-		match, err := filepath.Match(nameIn+".jpg", fi.Name())
-		if err != nil {
-			return err
+		for ext, decode := range map[string]Decoder{".jpg": jpeg.Decode, ".png": png.Decode} {
+			match, err := filepath.Match(nameIn+ext, fi.Name())
+			if err != nil {
+				return err
+			}
+			if match {
+				return w.visitFile(path, decode)
+			}
 		}
-		if !match {
-			return nil
-		}
-		return w.visitFile(path)
+		return nil
 	})
 }
 
