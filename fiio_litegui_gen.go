@@ -198,10 +198,10 @@ func main() {
 		steps := 120
 		var s slice
 		s.center = cent
-		s.outerradius = 58.0
-		s.innerradius = 40.0
+		s.outerradius = 59.0
 		for j := 0; j < steps; j++ {
 			// clockwise, starting slightly before 12 o'clock
+			s.innerradius = s.outerradius - 4.0 - 20.0*float64(j)/float64(steps)
 			a := (0.25 - float64(j-0)/float64(steps)) * 2 * math.Pi
 			b := (0.25 - float64(j-1)/float64(steps)) * 2 * math.Pi
 			if a < -math.Pi {
@@ -212,7 +212,7 @@ func main() {
 			}
 			var fg color.Color
 			if j < 100 {
-				c := 1 - float64(99-j)*0.005
+				c := 1 - float64(99-j)*0.004
 				fg = color.RGBA{uint8(math.Ceil(c * 0x99)), uint8(math.Ceil(c * 0xFF)), 0x00, 0xFF} // topbar_volume_color
 			} else {
 				c := 1 - float64(j-100)/20.0
@@ -230,8 +230,8 @@ func main() {
 			var s slice
 			s.center = cent
 			s.outerradius = 56.0
-			s.innerradius = 48.0
 			for j := 1; j < steps; j++ {
+				s.innerradius = s.outerradius - 4.0 - 8.0*float64(j)/float64(steps)
 				a := (-0.4 - float64(j+1)/float64(steps)*0.7) * 2 * math.Pi
 				b := (-0.4 - float64(j+0)/float64(steps)*0.7) * 2 * math.Pi
 				if a < -math.Pi {
@@ -241,7 +241,7 @@ func main() {
 					b += 2 * math.Pi
 				}
 				var fg color.Color
-				c := 1 - float64(steps-j)*0.005
+				c := 1 - float64(steps-j)*0.004
 				fg = color.RGBA{uint8(math.Ceil(c * 0x99)), uint8(math.Ceil(c * 0xFF)), 0x00, 0xFF} // topbar_volume_color
 				s.angleA = a
 				s.angleB = b
