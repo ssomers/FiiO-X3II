@@ -199,9 +199,9 @@ func main() {
 		var s slice
 		s.center = cent
 		s.outerradius = 59.0
+		s.innerradius = s.outerradius - 6.0
 		for j := 0; j < steps; j++ {
 			// clockwise, starting slightly before 12 o'clock
-			s.innerradius = s.outerradius - 4.0 - 20.0*float64(j)/float64(steps)
 			a := (0.25 - float64(j-0)/float64(steps)) * 2 * math.Pi
 			b := (0.25 - float64(j-1)/float64(steps)) * 2 * math.Pi
 			if a < -math.Pi {
