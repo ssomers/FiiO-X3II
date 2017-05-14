@@ -59,7 +59,6 @@ func (d *slice) At(x, y int) color.Color {
 type generator func(i int, rect image.Rectangle, cent image.Point, img draw.Image)
 
 func generate(width int, height int, fnamePattern string, first int, last int, jpg *jpeg.Options, gen generator) {
-
 	rect := image.Rect(0, 0, width, height)
 	cent := image.Pt(width/2, height/2)
 	// bg := color.Black
@@ -99,6 +98,29 @@ func generate(width int, height int, fnamePattern string, first int, last int, j
 }
 
 func main() {
+	for _, n := range []string{"playing", "category", "explorer", "play_set", "sys_set"} {
+		generate(56, 52, filepath.Join("changes_generated", "litegui", "theme1", "launcher", n+"_f.png"), 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+			var s slice
+			s.center = image.Point{28, 20}
+			s.outerradius = 21
+			fg := color.RGBA{0x80, 0xAA, 0x00, 0xFF}
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
+
+			iconfilename := filepath.Join("changes_edited", "litegui", "theme1", "launcher", n+".png")
+			iconreader, err := os.Open(iconfilename)
+			if err != nil {
+				panic(fmt.Sprintf("%s", err))
+			}
+			defer iconreader.Close()
+			icon, err := png.Decode(iconreader)
+			if err != nil {
+				panic(fmt.Sprintf("%s: %s", iconfilename, err))
+			}
+			draw.Draw(img, rect, icon, image.Point{0, 0}, draw.Over)
+
+		})
+	}
+
 	generate(320, 240, filepath.Join("changes_generated", "litegui", "boot_animation", "boot%d.jpg"), 0, 45, &jpeg.Options{Quality: 10}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		for c := 0; c < i+1; c++ {
 			f1 := float64(i+1-c) / 46.0
