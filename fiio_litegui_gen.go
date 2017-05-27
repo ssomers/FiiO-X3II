@@ -99,10 +99,10 @@ func generate(width int, height int, fnamePattern string, first int, last int, j
 
 func main() {
 	for _, n := range []string{"playing", "category", "explorer", "play_set", "sys_set"} {
-		generate(56, 56, filepath.Join("changes_generated", "litegui", "theme1", "launcher", n+"_f.png"), 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+		generate(56, 72, filepath.Join("changes_generated", "litegui", "theme1", "launcher", n+"_f.png"), 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 			var s slice
-			s.center = image.Point{28, 20}
-			s.outerradius = 21
+			s.center = image.Point{28, 21}
+			s.outerradius = 22
 			fg := color.RGBA{0x80, 0xAA, 0x00, 0xFF}
 			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
 
@@ -221,7 +221,7 @@ func main() {
 		var s slice
 		s.center = cent
 		s.outerradius = 59.0
-		s.innerradius = s.outerradius - 6.0
+		s.innerradius = 49.4
 		for j := 0; j < steps; j++ {
 			// clockwise, starting slightly before 12 o'clock
 			a := (0.25 - float64(j-0)/float64(steps)) * 2 * math.Pi
