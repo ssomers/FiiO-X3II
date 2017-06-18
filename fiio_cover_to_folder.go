@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"github.com/nfnt/resize"
@@ -16,7 +17,7 @@ import (
 const nameIn = "cover"
 const nameOut = "folder"
 const verticalMargin = 0
-const heightVisible = 198
+const heightVisible = 200
 const widthOut = 320
 const heightOut = verticalMargin + heightVisible + verticalMargin
 const jpegQuality = 95
@@ -91,50 +92,84 @@ func targetfilename(seqNr int) string {
 	return nameOut + suffix + ".jpg"
 }
 
-func findJpg(jpgContents []byte, dir string) (outpath string, found bool, finalErr error) {
-	for seqNr := 0; ; seqNr++ {
-		outpath = filepath.Join(dir, targetfilename(seqNr))
-		err := compareFileContents(outpath, jpgContents)
-		if err == nil {
-			found = true
-			return
-		}
-		if os.IsNotExist(err) {
-			return // past highest sequence number (or there's a gap)
-		}
-		if err != io.EOF {
-			finalErr = err
-			return // trouble
-		}
-	}
-}
-
 type Writer struct {
-	kept, made int
+	kept, made, bent int
 }
 
-func (w *Writer) findOrWriteJpg(jpgContents []byte, dir string) error {
-	outpath, found, err := findJpg(jpgContents, dir)
-	if err != nil {
-		return err
-	}
-	if found {
-		fmt.Printf(outFmt+"\r", "Kept "+outpath)
-		w.kept++
-	} else {
-		out, err := os.OpenFile(outpath, os.O_CREATE|os.O_EXCL, 0666)
+type Asker struct {
+	reader     io.ByteReader
+	yes_to_all bool
+}
+
+func NewAsker(r io.Reader) *Asker {
+	return &Asker{reader: bufio.NewReader(r)}
+}
+
+func (a *Asker) ask(question string) (bool, error) {
+	for {
+		if a.yes_to_all {
+			return true, nil
+		}
+		fmt.Print(question + "? Yes/No/All\b\b\b\b\b\b\b\b\b\b")
+		answer, err := a.reader.ReadByte()
 		if err != nil {
+			return false, err
+		}
+		if answer == 'y' {
+			return true, nil
+		}
+		if answer == 'n' {
+			return false, nil
+		}
+		if answer == 'a' {
+			a.yes_to_all = true
+		}
+	}
+}
+
+func (w *Writer) findOrWriteJpg(asker *Asker, jpgContents []byte, dir string) error {
+	for seqNr := 0; ; seqNr++ {
+		outpath := filepath.Join(dir, targetfilename(seqNr))
+		err := compareFileContents(outpath, jpgContents)
+		found_same := err == nil
+		found_diff := err == io.EOF
+		found_none := os.IsNotExist(err)
+		if !found_same && !found_diff && !found_none {
 			return err
 		}
-		defer out.Close()
-		out.Write(jpgContents)
-		fmt.Printf(outFmt+"\n", "Made "+outpath)
-		w.made++
+
+		write_it := found_none
+		if found_diff {
+			write_it, err = asker.ask(outpath + " exists, overwrite")
+			if err != nil {
+				return err
+			}
+		}
+
+		if found_same {
+			w.kept++
+			return nil
+		}
+		if write_it {
+			out, err := os.Create(outpath)
+			if err != nil {
+				return err
+			}
+			defer out.Close()
+			out.Write(jpgContents)
+			if found_none {
+				fmt.Printf(outFmt+"\n", "Made "+outpath)
+				w.made++
+			} else {
+				fmt.Printf(outFmt+"\n", "Bent "+outpath)
+				w.bent++
+			}
+			return nil
+		}
 	}
-	return nil
 }
 
-func (w *Writer) visitFile(path string, decode Decoder) error {
+func (w *Writer) visitFile(asker *Asker, path string, decode Decoder) error {
 	art, err := readArt(path, decode)
 	if err != nil {
 		return err
@@ -143,11 +178,11 @@ func (w *Writer) visitFile(path string, decode Decoder) error {
 	if err != nil {
 		return err
 	}
-	err = w.findOrWriteJpg(jpgContents, filepath.Dir(path))
+	err = w.findOrWriteJpg(asker, jpgContents, filepath.Dir(path))
 	return err
 }
 
-func (w *Writer) visitDir(dir string) error {
+func (w *Writer) visitDir(asker *Asker, dir string) error {
 	return filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -161,7 +196,7 @@ func (w *Writer) visitDir(dir string) error {
 				return err
 			}
 			if match {
-				return w.visitFile(path, decode)
+				return w.visitFile(asker, path, decode)
 			}
 		}
 		return nil
@@ -169,16 +204,17 @@ func (w *Writer) visitDir(dir string) error {
 }
 
 func main() {
+	asker := NewAsker(os.Stdin)
 	var writer Writer
 	var dirs = []string{"."}
 	if len(os.Args) > 1 {
 		dirs = os.Args[1:]
 	}
 	for _, dir := range dirs {
-		err := writer.visitDir(dir)
+		err := writer.visitDir(asker, dir)
 		if err != nil {
 			panic(err)
 		}
 	}
-	fmt.Printf(outFmt+"\n", fmt.Sprintf("%d file(s) made, %d file(s) existed already.", writer.made, writer.kept))
+	fmt.Printf(outFmt+"\n", fmt.Sprintf("%d file(s) created, %d file(s) updated, %d file(s) existed already.", writer.made, writer.bent, writer.kept))
 }
