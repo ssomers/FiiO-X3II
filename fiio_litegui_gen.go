@@ -121,15 +121,15 @@ func main() {
 		})
 	}
 
-	generate(320, 240, filepath.Join("changes_generated", "litegui", "boot_animation", "boot%d.jpg"), 0, 45, &jpeg.Options{Quality: 10}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+	generate(320, 240, filepath.Join("changes_generated", "litegui", "boot_animation", "boot%d.jpg"), 0, 45, &jpeg.Options{Quality: 25}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+		var s slice
+		s.center = cent
 		for c := 0; c < i+1; c++ {
 			f1 := float64(i+1-c) / 46.0
-			f2 := math.Max(0, float64(46-2*c)) / 46.0
-			var s slice
-			s.center = cent
+			f2 := math.Max(0, 1.0-float64(c)/20.0)
 			s.outerradius = 333 * f1
 			fg := color.RGBA{
-				uint8(math.Ceil(f2*0x90)) + 0x09,
+				uint8(math.Ceil(f2*0xC0)) + 0x0C,
 				uint8(math.Ceil(f2*0xF0)) + 0x0F,
 				0,
 				0xFF}
@@ -137,16 +137,16 @@ func main() {
 		}
 	})
 
-	generate(320, 240, filepath.Join("changes_generated", "litegui", "boot_animation", "shutdown%d.jpg"), 0, 17, &jpeg.Options{Quality: 10}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
-		f := float64(18-i) / 18.0
+	generate(320, 240, filepath.Join("changes_generated", "litegui", "boot_animation", "shutdown%d.jpg"), 0, 17, &jpeg.Options{Quality: 20}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+		f := float64(i+1) / 18.0
 		fg := color.RGBA{
-			uint8(math.Ceil(f*0x90)) + 0x09,
+			uint8(math.Ceil(f*0xC0)) + 0x0C,
 			uint8(math.Ceil(f*0xF0)) + 0x0F,
 			0,
 			0xFF}
 		var s slice
 		s.center = cent
-		s.outerradius = 120 * f
+		s.outerradius = 2.0 + 118.0*(1.0-f)
 		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
 	})
 
