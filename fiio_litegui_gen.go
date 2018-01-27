@@ -117,17 +117,17 @@ func main() {
 				panic(fmt.Sprintf("%s: %s", iconfilename, err))
 			}
 			draw.Draw(img, rect, icon, image.Point{0, 0}, draw.Over)
-
 		})
 	}
 
 	generate(320, 240, filepath.Join("changes_generated", "litegui", "boot_animation", "boot%d.jpg"), 0, 45, &jpeg.Options{Quality: 25}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+		f0 := float64(45-i) / 45
 		var s slice
 		s.center = cent
 		for c := 0; c < i+1; c++ {
-			f1 := float64(i+1-c) / 46.0
-			f2 := math.Max(0, 1.0-float64(c)/20.0)
-			s.outerradius = 333 * f1
+			f1 := float64(i-c+1) / float64(45+1)
+			s.outerradius = 336 * f1
+			f2 := math.Max(0, math.Sin(float64(c+1)/2)+1) * 0.5 * (1 - f1) * f0
 			fg := color.RGBA{
 				uint8(math.Ceil(f2*0xC0)) + 0x0C,
 				uint8(math.Ceil(f2*0xF0)) + 0x0F,
@@ -147,6 +147,7 @@ func main() {
 		var s slice
 		s.center = cent
 		s.outerradius = 2.0 + 118.0*(1.0-f)
+		s.innerradius = s.outerradius / 2
 		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
 	})
 
