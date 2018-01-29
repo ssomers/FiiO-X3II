@@ -120,7 +120,9 @@ func main() {
 		})
 	}
 
-	generate(320, 240, filepath.Join("changes_generated", "litegui", "boot_animation", "boot%d.jpg"), 0, 45, &jpeg.Options{Quality: 25}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+	fnamePattern_boot := filepath.Join("changes_generated", "litegui", "boot_animation", "boot%d.jpg")
+	fnamePattern_shutdown := filepath.Join("changes_generated", "litegui", "boot_animation", "shutdown%d.jpg")
+	generate(320, 240, fnamePattern_boot, 0, 45, &jpeg.Options{Quality: 25}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		f0 := float64(45-i) / 45
 		var s slice
 		s.center = cent
@@ -136,20 +138,13 @@ func main() {
 			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Over)
 		}
 	})
-
-	generate(320, 240, filepath.Join("changes_generated", "litegui", "boot_animation", "shutdown%d.jpg"), 0, 17, &jpeg.Options{Quality: 20}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
-		f := float64(i+1) / 18.0
-		fg := color.RGBA{
-			uint8(math.Ceil(f*0xC0)) + 0x0C,
-			uint8(math.Ceil(f*0xF0)) + 0x0F,
-			0,
-			0xFF}
-		var s slice
-		s.center = cent
-		s.outerradius = 2.0 + 118.0*(1.0-f)
-		s.innerradius = s.outerradius / 2
-		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
-	})
+	for i := 0; i <= 17; i++ {
+		fname_dst := fmt.Sprintf(fnamePattern_shutdown, i)
+		fname_src := fmt.Sprintf(fnamePattern_boot, int(17-i)*45.0/17.0)
+		fmt.Println("Linking", fname_dst)
+		_ = os.Remove(fname_dst)
+		os.Link(fname_src, fname_dst)
+	}
 
 	generate(32, 32, filepath.Join("changes_generated", "litegui", "theme1", "music_update", "%02d.png"), 0, 11, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		f := math.Sin(float64(i+1) / 12.5 * math.Pi)
