@@ -140,7 +140,7 @@ func main() {
 	})
 	for i := 0; i <= 17; i++ {
 		fname_dst := fmt.Sprintf(fnamePattern_shutdown, i)
-		fname_src := fmt.Sprintf(fnamePattern_boot, int(17-i)*45.0/17.0)
+		fname_src := fmt.Sprintf(fnamePattern_boot, int(17-i)*2)
 		fmt.Println("Linking", fname_dst)
 		_ = os.Remove(fname_dst)
 		os.Link(fname_src, fname_dst)
