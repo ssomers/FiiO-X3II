@@ -57,8 +57,8 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
         move unpacked_tmp\litegui\theme%%t\playing\playing_menu_add?.png unpacked_tmp\litegui\theme%%t\m3u\
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\playing\playing_menu_add?.png
         for %%n in (category\menu\recent category\menu\recent_s list\album_s list\artist_s list\dir_s list\genre_s list\m3u_s list\recent list\recent_s play_settings\single_play playing\single_play0 playing\single_play1)do (
-          del unpacked_tmp\litegui\theme%%t\%%n.png
-          if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\%%n.png
+            if exist unpacked_tmp\litegui\theme%%t\%%n.png del unpacked_tmp\litegui\theme%%t\%%n.png
+            if errorlevel 1 set /P= unpacked_tmp\litegui\theme%%t\%%n.png
         )
     )
     if %%v == 2.0 for %%t in (1 2 3 4 5 6) do (
