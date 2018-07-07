@@ -3,27 +3,28 @@ if exist unpacked_tmp rmdir /Q/S unpacked_tmp
 for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     xcopy unpacked_original_%%v unpacked_tmp /Q/S/I /EXCLUDE:pack\exclude_original.txt
     if errorlevel 1 set /P= unpacked_original_%%v
-    rem Copy without themes 2,4,5 and 6, because they need to be superimposed
-    rem on the customization of theme1 resp. theme3
+
+    rem Copy without themes 2,3,4 and 6, because they need to be superimposed
+    rem on the customization of theme1 resp. theme5
     xcopy changes_edited unpacked_tmp /Q/S/Y /EXCLUDE:pack\exclude_partial.txt
     if errorlevel 1 set /P= changes_edited
     xcopy changes_generated unpacked_tmp /Q/S/Y
     if errorlevel 1 set /P= changes_generated
     for %%n in (charge number scrollbar theme usb) do (
-        xcopy unpacked_tmp\litegui\theme1\%%n unpacked_tmp\litegui\theme3\%%n /Q/S/I
+        xcopy unpacked_tmp\litegui\theme1\%%n unpacked_tmp\litegui\theme5\%%n /Q/S/I
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme1\%%n
     )
-    xcopy unpacked_tmp\litegui\theme1 unpacked_tmp\litegui\theme2 /Q/S/I
-    if errorlevel 1 set /P= unpacked_tmp\litegui\theme1
-    xcopy unpacked_tmp\litegui\theme3 unpacked_tmp\litegui\theme4 /Q/S/I
-    if errorlevel 1 set /P= unpacked_tmp\litegui\theme3
-    xcopy unpacked_tmp\litegui\theme1 unpacked_tmp\litegui\theme5 /Q/S/I
-    if errorlevel 1 set /P= unpacked_tmp\litegui\theme1
-    xcopy unpacked_tmp\litegui\theme1 unpacked_tmp\litegui\theme6 /Q/S/I
-    if errorlevel 1 set /P= unpacked_tmp\litegui\theme1
+    for %%t in (2 3 4) do (
+        xcopy unpacked_tmp\litegui\theme1 unpacked_tmp\litegui\theme%%t /Q/S/I
+        if errorlevel 1 set /P= unpacked_tmp\litegui\theme1
+    )
+    for %%t in (6) do (
+        xcopy unpacked_tmp\litegui\theme5 unpacked_tmp\litegui\theme%%t /Q/S/I
+        if errorlevel 1 set /P= unpacked_tmp\litegui\theme5
+    )
 
     rem Now superimpose partial themes
-    for %%t in (2 4 5 6) do (
+    for %%t in (2 3 4 6) do (
         if exist changes_edited\litegui\theme%%t (
             xcopy changes_edited\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/Y /EXCLUDE:pack\exclude_source.txt
             if errorlevel 1 set /P= changes_edited changes_edited\litegui\theme%%t
