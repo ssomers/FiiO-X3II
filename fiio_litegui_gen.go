@@ -137,7 +137,7 @@ func main() {
 
 	fnamePattern_boot := filepath.Join("changes_generated", "litegui", "boot_animation", "boot%d.jpg")
 	fnamePattern_shutdown := filepath.Join("changes_generated", "litegui", "boot_animation", "shutdown%d.jpg")
-	generate(320, 240, fnamePattern_boot, 0, 45, &jpeg.Options{Quality: 90}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+	generate(320, 240, fnamePattern_boot, 0, 45, &jpeg.Options{Quality: 25}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		f := float64(i) / float64(45)
 		offset := 220
 		var s slice
