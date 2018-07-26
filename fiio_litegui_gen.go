@@ -15,6 +15,7 @@ import (
 type slice struct {
 	center                   image.Point
 	innerradius, outerradius float64
+	inneralpha, outeralpha   float64
 	angleA, angleB           float64 // start & end angle of slice in radians
 }
 
@@ -24,8 +25,10 @@ func (*slice) ColorModel() color.Model {
 
 func (d *slice) Bounds() image.Rectangle {
 	if d.innerradius > d.outerradius {
-		fmt.Println(d.innerradius, " > ", d.outerradius)
-		os.Exit(1)
+		panic(fmt.Sprintf("%s > %s", d.innerradius, d.outerradius))
+	}
+	if d.inneralpha == 0 && d.outeralpha == 0 {
+		panic("need inneralpha or outeralpha or both")
 	}
 	rr := int(math.Ceil(d.outerradius))
 	return image.Rect(
@@ -38,22 +41,32 @@ func (d *slice) Bounds() image.Rectangle {
 func sqr(f float64) float64 { return f * f }
 
 func (d *slice) At(x, y int) color.Color {
-	xx := float64(x - d.center.X)
-	yy := float64(y - d.center.Y)
-	if rr := sqr(xx) + sqr(yy); rr < sqr(d.innerradius) || rr > sqr(d.outerradius) {
+	dx := float64(x - d.center.X)
+	dy := float64(y - d.center.Y)
+	rr := sqr(dx) + sqr(dy)
+	minrr := sqr(d.innerradius)
+	maxrr := sqr(d.outerradius)
+	if rr < minrr || maxrr < rr {
 		return color.Transparent
 	}
-	if d.angleA == d.angleB {
+	if d.angleA < d.angleB {
+		a := math.Atan2(-dy, dx)
+		if a < d.angleA || d.angleB < a {
+			return color.Transparent
+		}
+	}
+	if d.angleA > d.angleB {
+		a := math.Atan2(-dy, dx)
+		if d.angleB < a && a < d.angleA {
+			return color.Transparent
+		}
+	}
+	if d.inneralpha == 0 && d.outeralpha == 0 {
 		return color.Opaque
 	}
-	a := math.Atan2(-yy, xx)
-	if d.angleA < d.angleB && d.angleA <= a && a <= d.angleB {
-		return color.Opaque
-	}
-	if d.angleA > d.angleB && (d.angleA <= a || a <= d.angleB) {
-		return color.Opaque
-	}
-	return color.Transparent
+	w := math.Sqrt((rr - minrr) / (maxrr - minrr))
+	alpha := (1.0-w)*d.inneralpha + w*d.outeralpha
+	return color.Alpha16{uint16(math.Ceil(float64(color.Opaque.A) * alpha))}
 }
 
 type generator func(i int, rect image.Rectangle, cent image.Point, img draw.Image)
@@ -103,6 +116,8 @@ func main() {
 			var s slice
 			s.center = image.Point{28, 21}
 			s.outerradius = 22
+			s.inneralpha = 1
+			s.outeralpha = 0.5
 			fg := color.RGBA{0x80, 0xAA, 0x00, 0xFF}
 			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
 
@@ -122,21 +137,17 @@ func main() {
 
 	fnamePattern_boot := filepath.Join("changes_generated", "litegui", "boot_animation", "boot%d.jpg")
 	fnamePattern_shutdown := filepath.Join("changes_generated", "litegui", "boot_animation", "shutdown%d.jpg")
-	generate(320, 240, fnamePattern_boot, 0, 45, &jpeg.Options{Quality: 25}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
-		f0 := float64(45-i) / 45
+	generate(320, 240, fnamePattern_boot, 0, 45, &jpeg.Options{Quality: 90}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+		f := float64(i) / float64(45)
+		offset := 220
 		var s slice
+		s.outeralpha = 1.0 - 0.75*f
 		s.center = cent
-		for c := 0; c < i+1; c++ {
-			f1 := float64(i-c+1) / float64(45+1)
-			s.outerradius = 336 * f1
-			f2 := math.Max(0, math.Sin(float64(c+1)/2)+1) * 0.5 * (1 - f1) * f0
-			fg := color.RGBA{
-				uint8(math.Ceil(f2*0xC0)) + 0x0C,
-				uint8(math.Ceil(f2*0xF0)) + 0x0F,
-				0,
-				0xFF}
-			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Over)
-		}
+		s.center.Y = 240 + offset // below bottom
+		s.outerradius = float64(offset) + 2.0 + 400.0*f
+		s.innerradius = s.outerradius / 2.0
+		fg := color.RGBA{0xCC, 0xFF, 0, 0xFF}
+		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Over)
 	})
 	for i := 0; i <= 17; i++ {
 		fname_dst := fmt.Sprintf(fnamePattern_shutdown, i)
@@ -148,13 +159,10 @@ func main() {
 
 	generate(32, 32, filepath.Join("changes_generated", "litegui", "theme1", "music_update", "%02d.png"), 0, 11, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		f := math.Sin(float64(i+1) / 12.5 * math.Pi)
-		fg := color.RGBA{
-			0xFF,
-			0x99,
-			0,
-			0xFF}
+		fg := color.RGBA{0xFF, 0x99, 0, 0xFF}
 		var s slice
 		s.center = cent
+		s.inneralpha = 1.0
 		s.outerradius = 8 * f
 		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
 	})
@@ -184,6 +192,8 @@ func main() {
 			var s slice
 			s.center = cent
 			s.outerradius = outerradius
+			s.outeralpha = 1.0
+			s.inneralpha = 0.5
 			if j != i {
 				s.innerradius = innerradius
 			}
@@ -194,6 +204,8 @@ func main() {
 		var s slice
 		s.center = cent
 		s.outerradius = cutoffradius
+		s.inneralpha = 1.0
+		s.outeralpha = 1.0
 		draw.DrawMask(img, rect, &image.Uniform{color.RGBA{0x99, 0x99, 0x99, 0xFF}}, image.ZP, &s, image.ZP, draw.Over)
 
 		iconfilename := filepath.Join("changes_edited", fmt.Sprintf("theme_icon_%d.png", i))
@@ -218,6 +230,8 @@ func main() {
 		s.center = cent
 		s.outerradius = 59.0
 		s.innerradius = 44.4
+		s.inneralpha = 1.0
+		s.outeralpha = 1.0
 		for j := 0; j < steps; j++ {
 			// clockwise, starting slightly before 12 o'clock
 			a := (0.25 - float64(j-0)/float64(steps)) * 2 * math.Pi
@@ -248,6 +262,8 @@ func main() {
 			var s slice
 			s.center = cent
 			s.outerradius = 56.0
+			s.inneralpha = 1.0
+			s.outeralpha = 1.0
 			for j := 1; j < steps; j++ {
 				s.innerradius = s.outerradius - 4.0 - 8.0*float64(j)/float64(steps)
 				a := (-0.4 - float64(j+1)/float64(steps)*0.7) * 2 * math.Pi
