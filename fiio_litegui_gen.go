@@ -61,9 +61,6 @@ func (d *slice) At(x, y int) color.Color {
 			return color.Transparent
 		}
 	}
-	if d.inneralpha == 0 && d.outeralpha == 0 {
-		return color.Opaque
-	}
 	w := math.Sqrt((rr - minrr) / (maxrr - minrr))
 	alpha := (1.0-w)*d.inneralpha + w*d.outeralpha
 	return color.Alpha16{uint16(math.Ceil(float64(color.Opaque.A) * alpha))}
@@ -118,7 +115,7 @@ func main() {
 			s.outerradius = 22
 			s.inneralpha = 1
 			s.outeralpha = 0.5
-			fg := color.RGBA{0x80, 0xAA, 0x00, 0xFF}
+			fg := color.RGBA{0xE4, 0xFF, 0x78, 0xFF}
 			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
 
 			iconfilename := filepath.Join("changes_edited", "litegui", "theme1", "launcher", n+".png")
@@ -158,13 +155,19 @@ func main() {
 	}
 
 	generate(32, 32, filepath.Join("changes_generated", "litegui", "theme1", "music_update", "%02d.png"), 0, 11, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
-		f := math.Sin(float64(i+1) / 12.5 * math.Pi)
 		fg := color.RGBA{0xFF, 0x99, 0, 0xFF}
 		var s slice
 		s.center = cent
 		s.inneralpha = 1.0
-		s.outerradius = 8 * f
+		s.outeralpha = 1.0
+		s.outerradius = 2
 		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
+		s.innerradius = s.outerradius
+		s.outerradius = 16
+		s.outeralpha = 0.0
+		s.angleA = (float64((16-i)%12) - 6.0) / 6.0 * math.Pi
+		s.angleB = (float64((20-i)%12) - 6.0) / 6.0 * math.Pi
+		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Over)
 	})
 
 	colors := []color.Color{
@@ -193,7 +196,6 @@ func main() {
 			s.center = cent
 			s.outerradius = outerradius
 			s.outeralpha = 1.0
-			s.inneralpha = 0.5
 			if j != i {
 				s.innerradius = innerradius
 			}
