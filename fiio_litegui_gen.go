@@ -196,7 +196,7 @@ func main() {
 		s.outerradius = cutoffradius
 		draw.DrawMask(img, rect, &image.Uniform{color.RGBA{0x99, 0x99, 0x99, 0xFF}}, image.ZP, &s, image.ZP, draw.Over)
 
-		iconfilename := filepath.Join("changes_fed", fmt.Sprintf("theme_icon_%d.png", i))
+		iconfilename := filepath.Join("changes_edited", fmt.Sprintf("theme_icon_%d.png", i))
 		iconreader, err := os.Open(iconfilename)
 		if err != nil {
 			panic(fmt.Sprintf("%s", err))

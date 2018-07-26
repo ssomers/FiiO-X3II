@@ -1,5 +1,7 @@
 @echo off
 if exist unpacked_tmp rmdir /Q/S unpacked_tmp
+if exist changes_generated rmdir /Q/S changes_generated
+go run fiio_litegui_gen.go
 for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     xcopy unpacked_original_%%v unpacked_tmp /Q/S/I /EXCLUDE:pack\exclude_original.txt
     if errorlevel 1 set /P= unpacked_original_%%v
@@ -17,18 +19,14 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     for %%t in (2 3 4) do (
         xcopy unpacked_tmp\litegui\theme1 unpacked_tmp\litegui\theme%%t /Q/S/I
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme1
+        copy changes_edited\litegui\theme%%t\config.ini unpacked_tmp\litegui\theme%%t
+        if errorlevel 1 set /P= changes_edited changes_edited\litegui\theme%%t\config.ini
     )
     for %%t in (6) do (
         xcopy unpacked_tmp\litegui\theme5 unpacked_tmp\litegui\theme%%t /Q/S/I
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme5
-    )
-
-    rem Now superimpose partial themes
-    for %%t in (2 3 4 6) do (
-        if exist changes_edited\litegui\theme%%t (
-            xcopy changes_edited\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/Y /EXCLUDE:pack\exclude_source.txt
-            if errorlevel 1 set /P= changes_edited changes_edited\litegui\theme%%t
-        )
+        xcopy changes_edited\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/Y
+        if errorlevel 1 set /P= changes_edited changes_edited\litegui\theme%%t
     )
 
     if %%v == 1.4 for %%t in (1 2 3 4 5 6) do (
