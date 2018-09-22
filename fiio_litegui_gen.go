@@ -24,11 +24,17 @@ func (*slice) ColorModel() color.Model {
 }
 
 func (d *slice) Bounds() image.Rectangle {
-	if d.innerradius > d.outerradius {
-		panic(fmt.Sprintf("%s > %s", d.innerradius, d.outerradius))
+	if d.innerradius >= d.outerradius {
+		panic(fmt.Sprintf("innerradius %f >= outerradius %f", d.innerradius, d.outerradius))
 	}
 	if d.inneralpha == 0 && d.outeralpha == 0 {
 		panic("need inneralpha or outeralpha or both")
+	}
+	if d.angleA < -math.Pi {
+		panic(fmt.Sprintf("angleA %f < -Pi", d.angleA))
+	}
+	if d.angleB > math.Pi {
+		panic(fmt.Sprintf("angleB %f > Pi", d.angleB))
 	}
 	rr := int(math.Ceil(d.outerradius))
 	return image.Rect(
@@ -136,13 +142,12 @@ func main() {
 	fnamePattern_shutdown := filepath.Join("changes_generated", "litegui", "boot_animation", "shutdown%d.jpg")
 	generate(320, 240, fnamePattern_boot, 0, 45, &jpeg.Options{Quality: 25}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		f := float64(i) / float64(45)
-		offset := 220
+		offset := 40
 		var s slice
 		s.outeralpha = 1.0 - 0.75*f
-		s.center = cent
-		s.center.Y = 240 + offset // below bottom
-		s.outerradius = float64(offset) + 2.0 + 400.0*f
-		s.innerradius = s.outerradius / 2.0
+		a := f * math.Pi / 2.0
+		s.center = image.Point{int(160*math.Sin(a) + 0.5), offset + int(300*(1-math.Cos(a))+0.5)}
+		s.outerradius = 2.0 + 160.0*f
 		fg := color.RGBA{0xCC, 0xFF, 0, 0xFF}
 		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Over)
 	})
