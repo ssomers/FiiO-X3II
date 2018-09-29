@@ -1,3 +1,4 @@
+circle_source
 theme_icon_
 litegui\theme2
 litegui\theme3

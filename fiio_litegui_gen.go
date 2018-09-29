@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/nfnt/resize"
 	"image"
 	"image/color"
 	"image/draw"
@@ -72,6 +73,25 @@ func (d *slice) At(x, y int) color.Color {
 	return color.Alpha16{uint16(math.Ceil(float64(color.Opaque.A) * alpha))}
 }
 
+func draw_png(img draw.Image, rect image.Rectangle, fname string, center image.Point, width uint) {
+	reader, err := os.Open(fname)
+	if err != nil {
+		panic(fmt.Sprintf("%s", err))
+	}
+	defer reader.Close()
+	overlay, err := png.Decode(reader)
+	if err != nil {
+		panic(fmt.Sprintf("%s: %s", fname, err))
+	}
+	if width > 0 {
+		overlay = resize.Resize(width, 0, overlay, resize.MitchellNetravali)
+	}
+	var pos image.Point
+	pos.X = overlay.Bounds().Max.X/2 - center.X
+	pos.Y = overlay.Bounds().Max.Y/2 - center.Y
+	draw.Draw(img, rect, overlay, pos, draw.Over)
+}
+
 type generator func(i int, rect image.Rectangle, cent image.Point, img draw.Image)
 
 func generate(width int, height int, fnamePattern string, first int, last int, jpg *jpeg.Options, gen generator) {
@@ -98,7 +118,6 @@ func generate(width int, height int, fnamePattern string, first int, last int, j
 		}
 
 		img := image.NewRGBA(rect)
-
 		gen(i, rect, cent, img)
 
 		if jpg != nil {
@@ -138,19 +157,21 @@ func main() {
 		})
 	}
 
+	circle_fname := filepath.Join("changes_edited", "circle_source.png")
 	fnamePattern_boot := filepath.Join("changes_generated", "litegui", "boot_animation", "boot%d.jpg")
 	fnamePattern_shutdown := filepath.Join("changes_generated", "litegui", "boot_animation", "shutdown%d.jpg")
-	generate(320, 240, fnamePattern_boot, 0, 45, &jpeg.Options{Quality: 25}, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+	fname_launcher_circle := filepath.Join("changes_generated", "litegui", "theme1", "launcher", "circle.png")
+	circle_draw := func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		f := float64(i) / float64(45)
-		offset := 40
-		var s slice
-		s.outeralpha = 1.0 - 0.75*f
-		a := f * math.Pi / 2.0
-		s.center = image.Point{int(160*math.Sin(a) + 0.5), offset + int(300*(1-math.Cos(a))+0.5)}
-		s.outerradius = 2.0 + 160.0*f
-		fg := color.RGBA{0xCC, 0xFF, 0, 0xFF}
-		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Over)
-	})
+		a := (1.0 - f) * math.Pi / 2.0
+		var center image.Point
+		center.X = int(160*math.Cos(a)+0.5) + 6
+		center.Y = int(-320*math.Sin(a)+0.5) + 370
+		width := 24 + uint(480*f)
+		draw_png(img, rect, circle_fname, center, width)
+	}
+	generate(320, 240, fnamePattern_boot, 0, 45, &jpeg.Options{Quality: 50}, circle_draw)
+	generate(320, 240, fname_launcher_circle, 45, 45, nil, circle_draw)
 	for i := 0; i <= 17; i++ {
 		fname_dst := fmt.Sprintf(fnamePattern_shutdown, i)
 		fname_src := fmt.Sprintf(fnamePattern_boot, int(17-i)*2)
@@ -216,19 +237,10 @@ func main() {
 		draw.DrawMask(img, rect, &image.Uniform{color.RGBA{0x99, 0x99, 0x99, 0xFF}}, image.ZP, &s, image.ZP, draw.Over)
 
 		iconfilename := filepath.Join("changes_edited", fmt.Sprintf("theme_icon_%d.png", i))
-		iconreader, err := os.Open(iconfilename)
-		if err != nil {
-			panic(fmt.Sprintf("%s", err))
-		}
-		defer iconreader.Close()
-		icon, err := png.Decode(iconreader)
-		if err != nil {
-			panic(fmt.Sprintf("%s: %s", iconfilename, err))
-		}
 		var center image.Point
-		center.X = -64 - int(math.Cos(ci)*iconradius+0.5) + icon.Bounds().Max.X/2
-		center.Y = -64 + int(math.Sin(ci)*iconradius+0.5) + icon.Bounds().Max.Y/2
-		draw.Draw(img, rect, icon, center, draw.Over)
+		center.X = 64 + int(math.Cos(ci)*iconradius+0.5)
+		center.Y = 64 - int(math.Sin(ci)*iconradius+0.5)
+		draw_png(img, rect, iconfilename, center, 0)
 	})
 
 	generate(118, 118, filepath.Join("changes_generated", "litegui", "theme1", "adjust", "volume_scale_focus.png"), 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
