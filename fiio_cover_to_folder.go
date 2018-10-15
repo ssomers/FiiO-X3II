@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const nameIn = "cover"
@@ -70,9 +71,10 @@ func readArt(inpath string, decode Decoder) (image.Image, error) {
 }
 
 func convertArt(art image.Image) ([]byte, error) {
-	art = resize.Resize(0, heightVisible, art, resize.Bilinear)
 	outrect := image.Rect(0, 0, widthOut, heightOut)
-	horizontalMargin := (widthOut - art.Bounds().Dx()) / 2
+	art = resize.Resize(0, heightVisible, art, resize.MitchellNetravali)
+	widthArt := art.Bounds().Dx()
+	horizontalMargin := (widthOut - widthArt) / 2
 	sp := image.Point{-horizontalMargin, -verticalMargin}
 	img := image.NewRGBA(outrect)
 	draw.Draw(img, outrect, art, sp, draw.Src)
@@ -97,33 +99,35 @@ type Writer struct {
 }
 
 type Asker struct {
-	reader     io.ByteReader
+	scanner    *bufio.Scanner
 	yes_to_all bool
 }
 
 func NewAsker(r io.Reader) *Asker {
-	return &Asker{reader: bufio.NewReader(r)}
+	return &Asker{scanner: bufio.NewScanner(r)}
 }
 
 func (a *Asker) ask(question string) (bool, error) {
+	if a.yes_to_all {
+		return true, nil
+	}
 	for {
-		if a.yes_to_all {
-			return true, nil
-		}
 		fmt.Print(question + "? Yes/No/All\b\b\b\b\b\b\b\b\b\b")
-		answer, err := a.reader.ReadByte()
-		if err != nil {
-			return false, err
+		if !a.scanner.Scan() {
+			return false, a.scanner.Err()
 		}
-		if answer == 'y' {
+		answer := strings.ToLower(a.scanner.Text())
+		if answer == "y" {
 			return true, nil
 		}
-		if answer == 'n' {
+		if answer == "n" {
 			return false, nil
 		}
-		if answer == 'a' {
+		if answer == "a" {
 			a.yes_to_all = true
+			return true, nil
 		}
+		fmt.Print("Pardon?\n")
 	}
 }
 
