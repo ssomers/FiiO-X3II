@@ -139,7 +139,7 @@ func main() {
 			s.center = image.Point{28, 21}
 			s.outerradius = 22
 			s.inneralpha = 1
-			s.outeralpha = 0.5
+			s.outeralpha = 0.2
 			fg := color.RGBA{0xE4, 0xFF, 0x78, 0xFF}
 			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
 
