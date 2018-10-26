@@ -167,7 +167,7 @@ func main() {
 		var center image.Point
 		center.X = int(160*math.Cos(a)+0.5) + 6
 		center.Y = int(-320*math.Sin(a)+0.5) + 370
-		width := 24 + uint(480*f)
+		width := 40 + uint(464*f)
 		draw_png(img, rect, circle_fname, center, width)
 	}
 	generate(320, 240, fnamePattern_boot, 0, 45, &jpeg.Options{Quality: 50}, circle_draw)
