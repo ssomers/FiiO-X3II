@@ -14,10 +14,13 @@ import (
 )
 
 type slice struct {
+	// Image definition for (parts of) a disc.
+	// Coordinates and radius are in pixels with the x-axis going east and y-axis going south(!)
+	// Angles are in radians from -Pi to +Pi, counter-clockwise with x-axis at angle 0.
 	center                   image.Point
 	innerradius, outerradius float64
 	inneralpha, outeralpha   float64
-	angleA, angleB           float64 // start & end angle of slice in radians
+	angleA, angleB           float64
 }
 
 func (*slice) ColorModel() color.Model {
@@ -163,11 +166,11 @@ func main() {
 	fname_launcher_circle := filepath.Join("changes_generated", "litegui", "theme1", "launcher", "circle.png")
 	circle_draw := func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		f := float64(i) / float64(45)
-		a := (1.0 - f) * math.Pi / 2.0
+		angle := (1.0 - f) * math.Pi / 2.0
 		var center image.Point
-		center.X = int(160*math.Cos(a)+0.5) + 6
-		center.Y = int(-320*math.Sin(a)+0.5) + 370
-		width := 40 + uint(464*f)
+		center.X = int(168*math.Cos(angle) + 0.5)
+		center.Y = int(-278*math.Sin(angle)+0.5) + 330
+		width := 40 + uint(400*f)
 		draw_png(img, rect, circle_fname, center, width)
 	}
 	generate(320, 240, fnamePattern_boot, 0, 45, &jpeg.Options{Quality: 50}, circle_draw)
