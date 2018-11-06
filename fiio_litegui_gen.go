@@ -41,11 +41,9 @@ func (d *slice) Bounds() image.Rectangle {
 		panic(fmt.Sprintf("angleB %f > Pi", d.angleB))
 	}
 	rr := int(math.Ceil(d.outerradius))
-	return image.Rect(
-		d.center.X-rr,
-		d.center.Y-rr,
-		d.center.X+rr,
-		d.center.Y+rr)
+	return image.Rectangle{
+		d.center.Sub(image.Point{rr, rr}),
+		d.center.Add(image.Point{rr, rr})}
 }
 
 func sqr(f float64) float64 { return f * f }
@@ -89,9 +87,7 @@ func draw_png(img draw.Image, rect image.Rectangle, fname string, center image.P
 	if width > 0 {
 		overlay = resize.Resize(width, 0, overlay, resize.MitchellNetravali)
 	}
-	var pos image.Point
-	pos.X = overlay.Bounds().Max.X/2 - center.X
-	pos.Y = overlay.Bounds().Max.Y/2 - center.Y
+	pos := overlay.Bounds().Max.Div(2).Sub(center)
 	draw.Draw(img, rect, overlay, pos, draw.Over)
 }
 
@@ -139,11 +135,11 @@ func main() {
 	for _, n := range []string{"playing", "category", "explorer", "play_set", "sys_set"} {
 		generate(56, 72, filepath.Join("changes_generated", "litegui", "theme1", "launcher", n+"_f.png"), 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 			var s slice
-			s.center = image.Point{28, 21}
-			s.outerradius = 22
+			s.center = image.Point{28, 17}
+			s.outerradius = 18
 			s.inneralpha = 1
 			s.outeralpha = 0.2
-			fg := color.RGBA{0xE4, 0xFF, 0x78, 0xFF}
+			fg := color.Gray{0xFF}
 			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
 
 			iconfilename := filepath.Join("changes_edited", "litegui", "theme1", "launcher", n+".png")
@@ -168,8 +164,8 @@ func main() {
 		f := float64(i) / float64(45)
 		angle := (1.0 - f) * math.Pi / 2.0
 		var center image.Point
-		center.X = int(168*math.Cos(angle) + 0.5)
-		center.Y = int(-278*math.Sin(angle)+0.5) + 330
+		center.X = int(math.Round(math.Cos(angle)*160)) + 0
+		center.Y = int(math.Round(math.Sin(angle)*-260)) + 320
 		width := 40 + uint(400*f)
 		draw_png(img, rect, circle_fname, center, width)
 	}
@@ -241,8 +237,8 @@ func main() {
 
 		iconfilename := filepath.Join("changes_edited", fmt.Sprintf("theme_icon_%d.png", i))
 		var center image.Point
-		center.X = 64 + int(math.Cos(ci)*iconradius+0.5)
-		center.Y = 64 - int(math.Sin(ci)*iconradius+0.5)
+		center.X = 64 + int(math.Round(math.Cos(ci)*iconradius))
+		center.Y = 64 - int(math.Round(math.Sin(ci)*iconradius))
 		draw_png(img, rect, iconfilename, center, 0)
 	})
 
