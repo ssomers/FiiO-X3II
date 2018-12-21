@@ -9,7 +9,7 @@ Operation:
 * The script picks up album art from cover.jpg files. To extract these from the embedded art in audio files, for instance in [Mp3tag](http://www.mp3tag.de/en/) by applying an action group defined with these actions:
  * Export cover to file "cover" (without enabling Export duplicate covers)
  * Remove fields "PICTURE"
-* Just like Mp3tag, the script doesn't overwrite any files and doesn't write duplicate files. For each cover.jpg, it creates a file folder.jpg if it didn't already exist. If the file does exist, and the contents don't match, it prompts for a resolution.
+* The script doesn't overwrite any files and doesn't write duplicate files. For each cover.jpg, it creates a file folder.jpg if it didn't already exist. If the file does exist, and the contents don't match, it prompts for a resolution.
 
 To run:
 
@@ -35,5 +35,5 @@ To generate customized firmware (probably incomplete steps):
 * Repeat previous 3 steps for firware version 1.4 (if needed)
 * Place a copy of packtools.exe in directory pack
 * Place a copy of msyh.ttf in directory changes_exported/fonts
-* Place a copy if eq.ini in directory pack and edit the equaliser profile names as desired
+* If desired, place a copy if eq.ini in directory pack and edit the equaliser profile names
 * Run [pack](pack.bat)
