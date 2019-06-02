@@ -1,4 +1,4 @@
-Stuff to create a customized firmware for the FiiO X3II Digital Audio Player, and to shape album art for the same device. Binaries are at https://www.dropbox.com/sh/h9f6xs8n85y0pfz/AACp-U7D0c1anNZHrOqT5g7Oa?dl=0.
+Stuff to create a customized firmware for the FiiO X3II Digital Audio Player, and to shape album art for the same device. Binaries (somewhat unconventionally) published as releases.
 
 ## fiio_cover_to_folder: shaping album art
 
