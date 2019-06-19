@@ -1,6 +1,6 @@
 Stuff to create a customized firmware for the FiiO X3II Digital Audio Player, and to shape album art for the same device. Binaries (somewhat unconventionally) published as releases.
 
-## fiio_cover_to_folder: shaping album art
+## Shaping album art: fiio_cover_to_folder
 
 This script scales down album art and adds a black border so that the image is entirely visible (whereas the player stretches original, square cover art in such a way that doesn't respect aspect ratio and interferes with displayed information.
 
@@ -25,8 +25,21 @@ To run:
 * On Windows, launch a [wrapper](fiio_cover_to_folder.cmd) to avoid the command line and keep the console window open
 
 
-## customized firmware
-To generate customized firmware (probably incomplete steps):
+## Customized firmware
+The last regular firmware version of the FiiO X3II digital audio player is [2.0 at FiiO's site](http://fiio.net/en/story/455). An interesting previous version is [1.4, the last with OTG support](http://www.fiio.me/forum.php?mod=viewthread&tid=40827) (adding storage on the USB port, which is not officially supported but works for most).
+ 
+[FiiO allows the firmwares to be customised](http://fiio.me/forum.php?mod=viewthread&tid=41293) with alternative images and graphical properties (colours, font sizes...).
+
+The [https://github.com/ssomers/FiiO-X3II/releases] here lists my own cooked customized firmwares with these high contrast themes:
+ 1. White/green on black
+ 2. Same with bigger font
+ 3. Same with very big font - the biggest that still shows all letters completely
+ 4. Same with an even taller font - cutting off the tail of lowercase letters g, j, p, q, y.
+ 5. White/orange/pastel colors in slightly bigger font, with watery progress bar
+ 6. Same as 5 but with pacman progress bar
+
+### DIY
+To generate customized firmware yourself (probably incomplete steps):
 * [Generate part of the graphics into directory "changes_generated".](fiio_litegui_gen.go)
 * Open each of the .xcf files in "changes_exported" with GIMP and export as .png file
 * Download X3II-FW2.0.zip and place X3II.fw in the working  directory
@@ -37,3 +50,17 @@ To generate customized firmware (probably incomplete steps):
 * Place a copy of msyh.ttf in directory changes_exported/fonts
 * If desired, place a copy if eq.ini in directory pack and edit the equaliser profile names
 * Run [pack](pack.bat)
+
+By the way, in 2.0, these folders and files are not used at all and can be removed:
+    litegui/test
+    litegui/theme?/list/headset.png
+    litegui/theme?/list/lineout.png
+    litegui/theme?/m3u/long_menu_bg.png
+    litegui/theme?/msg/bg_base.png
+    litegui/theme?/msg/dock_insert.png
+    litegui/theme?/msg/dock_remove.png
+    litegui/theme?/msg/full.png
+    litegui/theme?/msg/lock.png
+    litegui/theme?/number/L.png
+    litegui/theme?/number/R.png
+    litegui/theme?/topbar/shade.png
