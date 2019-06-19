@@ -30,7 +30,7 @@ The last regular firmware version of the FiiO X3II digital audio player is [2.0 
  
 [FiiO allows the firmwares to be customised](http://fiio.me/forum.php?mod=viewthread&tid=41293) with alternative images and graphical properties (colours, font sizes...).
 
-The [https://github.com/ssomers/FiiO-X3II/releases] here lists my own cooked customized firmwares with these high contrast themes:
+The [releases tab](https://github.com/ssomers/FiiO-X3II/releases) here lists my own cooked customized firmwares with these high contrast themes:
  1. White/green on black
  2. Same with bigger font
  3. Same with very big font - the biggest that still shows all letters completely
@@ -40,18 +40,17 @@ The [https://github.com/ssomers/FiiO-X3II/releases] here lists my own cooked cus
 
 ### DIY
 To generate customized firmware yourself (probably incomplete steps):
-* [Generate part of the graphics into directory "changes_generated".](fiio_litegui_gen.go)
 * Open each of the .xcf files in "changes_exported" with GIMP and export as .png file
-* Download X3II-FW2.0.zip and place X3II.fw in the working  directory
-* Run [unpack](unpack.bat)
+* Download X3II-FW2.0.zip and place X3II.fw in the working directory
+* Run unpack.bat
 * Rename directory "unpacked" to "unpacked_original_2.0"
 * Repeat previous 3 steps for firware version 1.4 (if needed)
 * Place a copy of packtools.exe in directory pack
 * Place a copy of msyh.ttf in directory changes_exported/fonts
 * If desired, place a copy if eq.ini in directory pack and edit the equaliser profile names
-* Run [pack](pack.bat)
+* Run pack.bat
 
-By the way, in 2.0, these folders and files are not used at all and can be removed:
+By the way, in 2.0, these folders and files are not used at all by the firmware's binary and can be removed:
     litegui/test
     litegui/theme?/list/headset.png
     litegui/theme?/list/lineout.png
