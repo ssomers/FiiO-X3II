@@ -12,7 +12,7 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     if errorlevel 1 set /P= changes_edited
     xcopy changes_generated unpacked_tmp /Q/S/Y
     if errorlevel 1 set /P= changes_generated
-    for %%n in (charge number scrollbar theme usb) do (
+    for %%n in (charge scrollbar theme usb) do (
         xcopy unpacked_tmp\litegui\theme1\%%n unpacked_tmp\litegui\theme5\%%n /Q/S/I
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme1\%%n
     )
