@@ -51,6 +51,7 @@ To generate customized firmware yourself (probably incomplete steps):
 * Run pack.bat
 
 By the way, in 2.0, these folders and files are not used at all by the firmware's binary and can be removed:
+
     litegui/test
     litegui/theme?/list/headset.png
     litegui/theme?/list/lineout.png
