@@ -165,7 +165,7 @@ func main() {
 		angle := (1.0 - f) * math.Pi / 2.0
 		var center image.Point
 		center.X = int(math.Round(math.Cos(angle)*160)) + 0
-		center.Y = int(math.Round(math.Sin(angle)*-260)) + 320
+		center.Y = int(math.Round(math.Sin(angle)*-240)) + 300
 		width := 40 + uint(400*f)
 		draw_png(img, rect, circle_fname, center, width)
 	}
