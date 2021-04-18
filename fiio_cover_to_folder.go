@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/nfnt/resize"
+	"golang.org/x/image/webp"
 	"image"
 	"image/draw"
 	"image/jpeg"
@@ -194,7 +195,10 @@ func (w *Writer) visitDir(asker *Asker, dir string) error {
 		if !fi.Mode().IsRegular() {
 			return nil
 		}
-		for ext, decode := range map[string]Decoder{".jpg": jpeg.Decode, ".png": png.Decode} {
+		for ext, decode := range map[string]Decoder{
+			".jpg":  jpeg.Decode,
+			".png":  png.Decode,
+			".webp": webp.Decode} {
 			match, err := filepath.Match(nameIn+ext, fi.Name())
 			if err != nil {
 				return err

@@ -16,6 +16,7 @@ To run:
 * Download and install Go from https://golang.org/dl/
 * On the command line:
 
+    go get github.com/golang/image/webp
     go run fiio_cover_to_folder.go
 
 * Or to build once, so you can copy the program to another system and run it without the Go environment:
