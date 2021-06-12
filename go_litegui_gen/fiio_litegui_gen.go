@@ -132,6 +132,7 @@ func generate(width int, height int, fnamePattern string, first int, last int, j
 }
 
 func main() {
+	os.Chdir("..") // thanks you, Go 1.16
 	for _, n := range []string{"playing", "category", "explorer", "play_set", "sys_set"} {
 		generate(56, 72, filepath.Join("changes_generated", "litegui", "theme1", "launcher", n+"_f.png"), 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 			var s slice
