@@ -17,7 +17,7 @@ import (
 )
 
 const nameIn = "cover"
-const nameOut = "folder"
+const fnameOut = "folder.jpg"
 const verticalMargin = 16
 const heightVisible = 208
 const widthOut = 320
@@ -87,14 +87,6 @@ func convertArt(art image.Image) ([]byte, error) {
 	return jpgContents.Bytes(), nil
 }
 
-func targetfilename(seqNr int) string {
-	suffix := ""
-	if seqNr > 0 {
-		suffix = fmt.Sprintf("(%d)", seqNr)
-	}
-	return nameOut + suffix + ".jpg"
-}
-
 type Writer struct {
 	kept, made, bent int
 }
@@ -132,50 +124,47 @@ func (a *Asker) ask(question string) (bool, error) {
 	}
 }
 
-func (w *Writer) findOrWriteJpg(asker *Asker, jpgContents []byte, dir string) error {
-	for seqNr := 0; ; seqNr++ {
-		outpath := filepath.Join(dir, targetfilename(seqNr))
-		err := compareFileContents(outpath, jpgContents)
-		found_same := err == nil
-		found_diff := err == io.EOF
-		found_none := os.IsNotExist(err)
-		if !found_same && !found_diff && !found_none {
+func (w *Writer) findOrWriteJpg(asker *Asker, jpgContents []byte, outpath string) error {
+	err := compareFileContents(outpath, jpgContents)
+	found_same := err == nil
+	found_diff := err == io.EOF
+	found_none := os.IsNotExist(err)
+	if !found_same && !found_diff && !found_none {
+		return err
+	}
+
+	write_it := found_none
+	if found_diff {
+		write_it, err = asker.ask(outpath + " exists, overwrite")
+		if err != nil {
 			return err
 		}
+	}
 
-		write_it := found_none
-		if found_diff {
-			write_it, err = asker.ask(outpath + " exists, overwrite")
-			if err != nil {
-				return err
-			}
+	if found_same {
+		w.kept++
+		return nil
+	}
+	if write_it {
+		out, err := os.Create(outpath)
+		if err != nil {
+			return err
 		}
-
-		if found_same {
-			w.kept++
-			return nil
-		}
-		if write_it {
-			out, err := os.Create(outpath)
-			if err != nil {
-				return err
-			}
-			defer out.Close()
-			out.Write(jpgContents)
-			if found_none {
-				fmt.Printf(outFmt+"\n", "Made "+outpath)
-				w.made++
-			} else {
-				fmt.Printf(outFmt+"\n", "Bent "+outpath)
-				w.bent++
-			}
-			return nil
+		defer out.Close()
+		out.Write(jpgContents)
+		if found_none {
+			fmt.Printf(outFmt+"\n", "Made "+outpath)
+			w.made++
+		} else {
+			fmt.Printf(outFmt+"\n", "Bent "+outpath)
+			w.bent++
 		}
 	}
+	return nil
 }
 
-func (w *Writer) visitFile(asker *Asker, path string, decode Decoder) error {
-	art, err := readArt(path, decode)
+func (w *Writer) convertFile(asker *Asker, inpath string, outpath string, decode Decoder) error {
+	art, err := readArt(inpath, decode)
 	if err != nil {
 		return err
 	}
@@ -183,29 +172,45 @@ func (w *Writer) visitFile(asker *Asker, path string, decode Decoder) error {
 	if err != nil {
 		return err
 	}
-	err = w.findOrWriteJpg(asker, jpgContents, filepath.Dir(path))
+	err = w.findOrWriteJpg(asker, jpgContents, outpath)
 	return err
 }
 
+func findDecoder(fname string) (Decoder, error) {
+	for ext, decode := range map[string]Decoder{
+		".jpg":  jpeg.Decode,
+		".png":  png.Decode,
+		".webp": webp.Decode} {
+		if ext == filepath.Ext(fname) {
+			return decode, nil
+		}
+	}
+	return nil, fmt.Errorf("Unknown filename %s", fname)
+}
+
+func (w *Writer) visitFile(asker *Asker, inpath string, outpath string) error {
+	decode, err := findDecoder(inpath)
+	if decode == nil {
+		return err
+	}
+	return w.convertFile(asker, inpath, outpath, decode)
+}
+
 func (w *Writer) visitDir(asker *Asker, dir string) error {
-	return filepath.Walk(dir, func(path string, fi os.FileInfo, err error) error {
+	return filepath.Walk(dir, func(inpath string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if !fi.Mode().IsRegular() {
 			return nil
 		}
-		for ext, decode := range map[string]Decoder{
-			".jpg":  jpeg.Decode,
-			".png":  png.Decode,
-			".webp": webp.Decode} {
-			match, err := filepath.Match(nameIn+ext, fi.Name())
-			if err != nil {
-				return err
-			}
-			if match {
-				return w.visitFile(asker, path, decode)
-			}
+		match, err := filepath.Match(nameIn+".*", fi.Name())
+		if err != nil {
+			return err
+		}
+		if match {
+			outpath := filepath.Join(filepath.Dir(inpath), fnameOut)
+			return w.visitFile(asker, inpath, outpath)
 		}
 		return nil
 	})
@@ -214,15 +219,23 @@ func (w *Writer) visitDir(asker *Asker, dir string) error {
 func main() {
 	asker := NewAsker(os.Stdin)
 	var writer Writer
-	var dirs = []string{"."}
-	if len(os.Args) > 1 {
-		dirs = os.Args[1:]
-	}
-	for _, dir := range dirs {
+	if len(os.Args) == 1 {
+		fmt.Printf(outFmt+"\n", "Nothing to do")
+	} else if len(os.Args) == 2 {
+		dir := os.Args[1]
 		err := writer.visitDir(asker, dir)
 		if err != nil {
 			panic(err)
 		}
+		fmt.Printf(outFmt+"\n", fmt.Sprintf("%d file(s) created, %d file(s) updated, %d file(s) existed already.", writer.made, writer.bent, writer.kept))
+	} else if len(os.Args) == 3 {
+		inpath := os.Args[1]
+		outpath := os.Args[2]
+		err := writer.visitFile(asker, inpath, outpath)
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		fmt.Printf(outFmt+"\n", os.Args)
 	}
-	fmt.Printf(outFmt+"\n", fmt.Sprintf("%d file(s) created, %d file(s) updated, %d file(s) existed already.", writer.made, writer.bent, writer.kept))
 }
