@@ -27,7 +27,7 @@ function Convert-Cover {
         $SrcImage = [Drawing.Image]::FromFile($SrcPath)
     }
     catch {
-        Write-Error ("Cannot read " + $SrcPath)
+        Write-Error "Cannot read $SrcPath"
     }
     $InsetWidth = $SrcImage.Width / $SrcImage.Height * $InsetHeight
     $InsetX = ($ImageWidth - $InsetWidth) / 2
@@ -45,20 +45,20 @@ function Convert-Cover {
 
     try {
         $OldDstBytes = [System.IO.File]::ReadAllBytes($DstPath)
-        $change = "updated"
+        $change = "Updating"
     }
     catch [System.IO.FileNotFoundException] {
         $OldDstBytes = [byte[]] @()
-        $change = "created"
+        $change = "Creating"
     }
     if ($OldDstBytes.Length -ne $DstStream.Length -Or
         [msvcrt]::memcmp($OldDstBytes, $DstStream.GetBuffer(), $DstStream.Length) -ne 0) {
         $DstStream.Close()
+        Write-Output ("$change $DstPath")
         [System.IO.File]::WriteAllBytes($DstPath, $DstStream.ToArray())
-        Write-Output ("$DstPath $change")
     }
     else {
-        #Write-Output ("$DstPath OK")
+        #Write-Output ("Checked $DstPath")
     }
 }
 
@@ -78,7 +78,7 @@ ForEach-Object {
     Write-Progress $src_folder
     $c = $src_folder -Split '\\'
     if ($c[0] -ne "." -Or -Not ($c[1] -Like $SourcePattern)) {
-        Throw ("Quirky Path " + $src_folder)
+        Throw "Quirky Path $src_folder"
     }
     $c[1] = $c[1].Substring(0, $c[1].Length - $SourcePattern.Length + 1)
     $dst_folder = $c -Join '\\'
@@ -97,44 +97,43 @@ ForEach-Object {
     ForEach-Object {
         $src_path = $_.FullName
         $src_name = $_.Name
+        $converted_dst_name = $_.BaseName + ".m4a"
         $dst_name = $null
-        $convert = $false
-        if ($src_name -Like "*.raw.*") {
-        }
-        elseif ($src_name -Like "*.aac" -Or $src_name -Like "*.m4a" -Or $src_name -Like "*.mp3" -Or $src_name -Like "*.ogg" -Or $src_name -Like "*.wma") {
-            $dst_name = $src_name
-        }
-        elseif ($src_name -Like "*.ac3" -Or $src_name -Like "*.flac") {
-            $dst_name = $_.BaseName + ".m4a"
-            $convert = $true
-        }
-        elseif ($src_name -eq "cover.jpg" -Or $src_name -eq "cover.png") {
-            $dst_path = Join-Path $dst_folder $ImageName
-            Convert-Cover $src_path $dst_path
-        }
-        elseif (-Not($src_name -Like "*.txt" -Or $src_name -Like "*.pdf" -Or $src_name -Like "*.webp" -Or $src_name -Like "*.iso" -Or $_.BaseName -eq "cover_org")) {
-            Write-Warning ("Spurious " + (Join-Path $src_folder $_))
+        switch -Wildcard ($src_name) {
+            "*.raw.*" { break }
+            "*.aac" { $dst_name = $src_name }
+            "*.m4a" { $dst_name = $src_name }
+            "*.mp3" { $dst_name = $src_name }
+            "*.ogg" { $dst_name = $src_name }
+            "*.wma" { $dst_name = $src_name }
+            "*.ac3" { $dst_name = $converted_dst_name }
+            "*.flac" { $dst_name = $converted_dst_name }
+            "cover.*" { Convert-Cover $src_path (Join-Path $dst_folder $ImageName) }
+            "*.iso" {}
+            "*.pdf" {}
+            "*.txt" {}
+            default { Write-Warning "Spurious $(Join-Path $src_folder $_)" }
         }
         if ($dst_name) {
             $dst_path = Join-Path $dst_folder $dst_name
             if ($cuts -And $cuts.Contains($src_name)) {
                 if (Test-Path -LiteralPath $dst_path) {
-                    Write-Warning ("Spurious " + $dst_path)
+                    Write-Warning "Spurious $dst_path"
                 }
             }
             else {
-                if ($convert) {
-                    if (-Not (Test-Path -LiteralPath $dst_path)) {
-                        Write-Output ("Creating " + $dst_path)
-                        & $FfmpegPath -hide_banner -v warning -i $src_path -q $FfmpegQuality $dst_path
-                    }
-                }
-                else {
+                if ($src_name -eq $dst_name) {
                     if (-Not (Test-Path -LiteralPath $dst_path)) {
                         New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
                     }
                     elseif ((Get-FileID $src_path) -ne (Get-FileID $dst_path)) {
-                        Write-Warning ("Unhinged " + $dst_path)
+                        Write-Warning "Unhinged $dst_path"
+                    }
+                }
+                else {
+                    if (-Not (Test-Path -LiteralPath $dst_path)) {
+                        Write-Output "Creating $dst_path"
+                        & $FfmpegPath -hide_banner -v warning -i $src_path -q $FfmpegQuality $dst_path
                     }
                 }
                 ++$dst_count
@@ -144,7 +143,7 @@ ForEach-Object {
         }
     }
     ForEach ($n in $cuts) {
-        Write-Warning ($cut_path + ": " + "unused item " + $n)
+        Write-Warning ($cut_path + ": unused item " + $n)
     }
     if ($src_count -And -Not $dst_count) {
         Write-Warning ("Unused folder " + $src_folder)

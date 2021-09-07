@@ -1,13 +1,16 @@
 Set-Variable SourcePattern -Value "*.src" -Option Constant
 Set-Variable ImageName -Value "folder.jpg" -Option Constant
 
+Write-Output "`n`n`n`n`n"
+
 Get-ChildItem -Directory -Filter $SourcePattern |
 Get-ChildItem -Directory -Recurse |
 ForEach-Object {
     $src_folder = Resolve-Path -LiteralPath $_.FullName -Relative
+    Write-Progress $src_folder
     $c = $src_folder -Split '\\'
     if ($c[0] -ne "." -Or -Not ($c[1] -Like $SourcePattern)) {
-        Throw ("Quirky Path " + $src_folder)
+        Throw "Quirky Path $src_folder"
     }
     $c[1] = $c[1].Substring(0, $c[1].Length - $SourcePattern.Length + 1)
     $dst_folder = $c -Join '\\'
@@ -21,12 +24,17 @@ ForEach-Object {
     $_.EnumerateFiles() |
     ForEach-Object {
         $src_name = $_.Name
+        $converted_dst_name = $_.BaseName + ".m4a"
         $dst_name = $null
-        if ($src_name -Like "*.aac" -Or $src_name -Like "*.m4a" -Or $src_name -Like "*.mp3" -Or $src_name -Like "*.ogg" -Or $src_name -Like "*.wma") {
-            $dst_name = $src_name
-        }
-        elseif ($src_name -Like "*.ac3" -Or $src_name -Like "*.flac") {
-            $dst_name = $_.BaseName + ".m4a"
+        switch -Wildcard ($src_name) {
+            "*.raw.*" { break }
+            "*.aac" { $dst_name = $src_name }
+            "*.m4a" { $dst_name = $src_name }
+            "*.mp3" { $dst_name = $src_name }
+            "*.ogg" { $dst_name = $src_name }
+            "*.wma" { $dst_name = $src_name }
+            "*.ac3" { $dst_name = $converted_dst_name }
+            "*.flac" { $dst_name = $converted_dst_name }
         }
         if ($dst_name) {
             $dst_path = Join-Path $dst_folder $dst_name
@@ -52,7 +60,7 @@ ForEach-Object {
             $cuts | Sort-Object | Set-Content -LiteralPath $cut_path -Encoding UTF8
         }
         else {
-            Write-Output ("${cut_path}: removing")
+            Write-Output "${cut_path}: removing"
             Remove-Item -Confirm -LiteralPath $cut_path
         }
     }
