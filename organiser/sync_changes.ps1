@@ -4,6 +4,8 @@ Set-Variable ImageQuality -Value 95 -Option Constant
 Set-Variable ImageWidth -Value 320 -Option Constant
 Set-Variable ImageHeight -Value 240 -Option Constant
 Set-Variable InsetHeight -Value 208 -Option Constant
+Set-Variable FfmpegPath -Value "C:\Programs\ffmpeg\bin\ffmpeg.exe" -Option Constant
+Set-Variable FfmpegQuality -Value 5 -Option Constant
 
 Add-Type -AssemblyName System.Drawing
 Add-Type -Assembly PresentationCore
@@ -67,6 +69,8 @@ function Get-FileID {
     (fsutil file queryFileID $LiteralPath) -Split " " |  Select-Object -Last 1
 }
 
+Write-Output "`n`n`n`n`n"
+
 Get-ChildItem -Directory -Filter $SourcePattern |
 Get-ChildItem -Directory -Recurse |
 ForEach-Object {
@@ -78,8 +82,6 @@ ForEach-Object {
     }
     $c[1] = $c[1].Substring(0, $c[1].Length - $SourcePattern.Length + 1)
     $dst_folder = $c -Join '\\'
-    $c[1] += ".tmp"
-    $int_folder = $c -Join '\\'
 
     $cut_path = Join-Path $src_folder "cut.txt"
     $cuts = [string[]]@()
@@ -87,8 +89,6 @@ ForEach-Object {
 
     $src_count = 0
     $dst_count = 0
-    $conversions = @()
-    $conversions_missing = 0
 
     if (-Not (Test-Path -LiteralPath $dst_folder)) {
         New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
@@ -99,7 +99,9 @@ ForEach-Object {
         $src_name = $_.Name
         $dst_name = $null
         $convert = $false
-        if ($src_name -Like "*.aac" -Or $src_name -Like "*.m4a" -Or $src_name -Like "*.mp3" -Or $src_name -Like "*.ogg" -Or $src_name -Like "*.wma") {
+        if ($src_name -Like "*.raw.*") {
+        }
+        elseif ($src_name -Like "*.aac" -Or $src_name -Like "*.m4a" -Or $src_name -Like "*.mp3" -Or $src_name -Like "*.ogg" -Or $src_name -Like "*.wma") {
             $dst_name = $src_name
         }
         elseif ($src_name -Like "*.ac3" -Or $src_name -Like "*.flac") {
@@ -123,10 +125,9 @@ ForEach-Object {
             else {
                 if ($convert) {
                     if (-Not (Test-Path -LiteralPath $dst_path)) {
-                        Write-Warning ("Missing " + $dst_path)
-                        ++$conversions_missing
+                        Write-Output ("Creating " + $dst_path)
+                        & $FfmpegPath -hide_banner -v warning -i $src_path -q $FfmpegQuality $dst_path
                     }
-                    $conversions += $_
                 }
                 else {
                     if (-Not (Test-Path -LiteralPath $dst_path)) {
@@ -141,27 +142,6 @@ ForEach-Object {
             ++$src_count
             $cuts = $cuts | Where-Object { $_ -ne $src_name }
         }
-    }
-    if ($conversions_missing) {
-        if (-Not (Test-Path -LiteralPath $int_folder)) {
-            New-Item -ItemType "Directory" -Path $int_folder | Out-Null
-        }
-        if (-Not (Test-Path -LiteralPath $dst_folder)) {
-            New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
-        }
-        foreach ($conversion in $conversions) {
-            $src_path = $conversion.FullName
-            $int_path = Join-Path $int_folder $conversion.Name
-            if (Test-Path -LiteralPath $int_path) {
-                if ((Get-FileID $src_path) -ne (Get-FileID $int_path)) {
-                    Write-Warning ("Unhinged " + $int_path)
-                }
-            }
-            else {
-                New-Item -ItemType "HardLink" -Path $int_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
-            }
-        }
-        Write-Output ("Prepared " + $int_folder)
     }
     ForEach ($n in $cuts) {
         Write-Warning ($cut_path + ": " + "unused item " + $n)
