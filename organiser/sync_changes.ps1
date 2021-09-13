@@ -101,7 +101,6 @@ ForEach-Object {
         $dst_name = $null
         switch -Wildcard ($src_name) {
             "*.raw.*" { break }
-            "*.aac" { $dst_name = $src_name }
             "*.m4a" { $dst_name = $src_name }
             "*.mp3" { $dst_name = $src_name }
             "*.ogg" { $dst_name = $src_name }
@@ -118,12 +117,13 @@ ForEach-Object {
             $dst_path = Join-Path $dst_folder $dst_name
             if ($cuts -And $cuts.Contains($src_name)) {
                 if (Test-Path -LiteralPath $dst_path) {
-                    Write-Warning "Spurious $dst_path"
+                    Remove-Item -LiteralPath $dst_path -Confirm
                 }
             }
             else {
                 if ($src_name -eq $dst_name) {
                     if (-Not (Test-Path -LiteralPath $dst_path)) {
+                        Write-Output "Linking $dst_path"
                         New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
                     }
                     elseif ((Get-FileID $src_path) -ne (Get-FileID $dst_path)) {

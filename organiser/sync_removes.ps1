@@ -28,7 +28,6 @@ ForEach-Object {
         $dst_name = $null
         switch -Wildcard ($src_name) {
             "*.raw.*" { break }
-            "*.aac" { $dst_name = $src_name }
             "*.m4a" { $dst_name = $src_name }
             "*.mp3" { $dst_name = $src_name }
             "*.ogg" { $dst_name = $src_name }
@@ -89,10 +88,14 @@ ForEach-Object {
         $_.EnumerateFiles() |
         Where-Object -Property Name -ne $ImageName |
         ForEach-Object {
+            $dst_path = $_.FullName
             $src_path1 = Join-Path $src_folder $_.Name
-            $src_path2 = Join-Path $src_folder ($_.BaseName + ".flac")
-            if (-Not (Test-Path -LiteralPath $src_path1) -And -Not (Test-Path -LiteralPath $src_path2)) {
-                Write-Warning ("Lonely " + $_.FullName)
+            $src_path2 = Join-Path $src_folder ($_.BaseName + ".ac3")
+            $src_path3 = Join-Path $src_folder ($_.BaseName + ".flac")
+            if (-Not (Test-Path -LiteralPath $src_path1) -And
+                -Not (Test-Path -LiteralPath $src_path2) -And
+                -Not (Test-Path -LiteralPath $src_path3)) {
+                Remove-Item -LiteralPath $dst_path -Confirm
             }
         }
     }
