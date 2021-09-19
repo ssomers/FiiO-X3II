@@ -1,7 +1,9 @@
 @echo off
 if exist unpacked_tmp rmdir /Q/S unpacked_tmp
 if exist changes_generated rmdir /Q/S changes_generated
+pushd go_litegui_gen
 go run fiio_litegui_gen.go
+popd
 for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     xcopy unpacked_original_%%v unpacked_tmp /Q/S/I /EXCLUDE:pack\exclude_original.txt
     if errorlevel 1 set /P= unpacked_original_%%v
