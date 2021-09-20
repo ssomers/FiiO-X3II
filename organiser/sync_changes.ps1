@@ -100,6 +100,8 @@ ForEach-Object {
         $converted_dst_name = $_.BaseName + ".m4a"
         $dst_name = $null
         switch -Wildcard ($src_name) {
+            "*.new.*" { break }
+            "*.old.*" { break }
             "*.raw.*" { break }
             "*.m4a" { $dst_name = $src_name }
             "*.mp3" { $dst_name = $src_name }
@@ -134,6 +136,10 @@ ForEach-Object {
                     if (-Not (Test-Path -LiteralPath $dst_path)) {
                         Write-Output "Creating $dst_path"
                         & $FfmpegPath -hide_banner -v warning -i $src_path -q $FfmpegQuality $dst_path
+                    }
+                    elseif ($_.LastWriteTime -gt (Get-Item -LiteralPath $dst_path).LastWriteTime) {
+                        Write-Output "Updating $dst_path"
+                        & $FfmpegPath -hide_banner -v warning -i $src_path -q $FfmpegQuality $dst_path -y
                     }
                 }
                 ++$dst_count

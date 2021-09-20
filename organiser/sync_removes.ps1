@@ -27,6 +27,8 @@ ForEach-Object {
         $converted_dst_name = $_.BaseName + ".m4a"
         $dst_name = $null
         switch -Wildcard ($src_name) {
+            "*.new.*" { break }
+            "*.old.*" { break }
             "*.raw.*" { break }
             "*.m4a" { $dst_name = $src_name }
             "*.mp3" { $dst_name = $src_name }
