@@ -4,10 +4,13 @@ Set-Variable ImageName -Value "folder.jpg" -Option Constant
 Write-Output "`n`n`n`n`n"
 
 Get-ChildItem -Directory -Filter $SourcePattern |
+ForEach-Object {
+    Write-Progress "Looking for files deleted from mirror of $_"
+    $_
+} |
 Get-ChildItem -Directory -Recurse |
 ForEach-Object {
     $src_folder = Resolve-Path -LiteralPath $_.FullName -Relative
-    Write-Progress $src_folder
     $c = $src_folder -Split '\\'
     if ($c[0] -ne "." -Or -Not ($c[1] -Like $SourcePattern)) {
         Throw "Quirky Path $src_folder"
@@ -31,11 +34,13 @@ ForEach-Object {
             "*.old.*" { break }
             "*.raw.*" { break }
             "*.m4a" { $dst_name = $src_name }
+            "*.mp2" { $dst_name = $src_name }
             "*.mp3" { $dst_name = $src_name }
             "*.ogg" { $dst_name = $src_name }
             "*.wma" { $dst_name = $src_name }
             "*.ac3" { $dst_name = $converted_dst_name }
             "*.flac" { $dst_name = $converted_dst_name }
+            "*.opus" { $dst_name = $converted_dst_name }
         }
         if ($dst_name) {
             $dst_path = Join-Path $dst_folder $dst_name
@@ -69,6 +74,10 @@ ForEach-Object {
 
 Get-ChildItem -Directory -Filter $SourcePattern |
 ForEach-Object {
+    Write-Progress "Looking for files to be deleted from mirror of $_"
+    $_
+} |
+ForEach-Object {
     $src_top = Resolve-Path -LiteralPath $_.FullName -Relative
     $c = $src_top -Split '\\'
     if ($c[0] -ne "." -Or -Not ($c[1] -Like $SourcePattern)) {
@@ -94,9 +103,11 @@ ForEach-Object {
             $src_path1 = Join-Path $src_folder $_.Name
             $src_path2 = Join-Path $src_folder ($_.BaseName + ".ac3")
             $src_path3 = Join-Path $src_folder ($_.BaseName + ".flac")
+            $src_path4 = Join-Path $src_folder ($_.BaseName + ".opus")
             if (-Not (Test-Path -LiteralPath $src_path1) -And
                 -Not (Test-Path -LiteralPath $src_path2) -And
-                -Not (Test-Path -LiteralPath $src_path3)) {
+                -Not (Test-Path -LiteralPath $src_path3) -And
+                -Not (Test-Path -LiteralPath $src_path4)) {
                 Remove-Item -LiteralPath $dst_path -Confirm
             }
         }

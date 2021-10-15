@@ -44,7 +44,7 @@ By the way, in 2.0, these folders and files are not used at all by the firmware'
 
 These Powershell scripts set up and maintain parallel directory trees with contents extracted from a source and prepared for the player, on a standard NTFS partition. FLAC files are (manually) converted, more compressed files are hardlinked, cover art is converted, and some files are cut out.
 
-`sync_changes.ps1` initiates and incrementally updates whenever things change in the source tree. You then sync the desintation tree with the player. If you delete a track on the player, and sync back with the destintation folder, `sync_removes.ps1` records the removal in a small text file.
+`sync-changes.ps1` initiates and incrementally updates whenever things change in the source tree. You then sync the desintation tree with the player. If you delete a track on the player, and sync back with the destintation folder, `sync-removes.ps1` records the removal in a small text file.
 
 ## Shaping album art: fiio_cover_to_folder
 

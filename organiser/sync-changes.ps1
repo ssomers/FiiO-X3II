@@ -104,16 +104,19 @@ ForEach-Object {
             "*.old.*" { break }
             "*.raw.*" { break }
             "*.m4a" { $dst_name = $src_name }
+            "*.mp2" { $dst_name = $src_name }
             "*.mp3" { $dst_name = $src_name }
             "*.ogg" { $dst_name = $src_name }
             "*.wma" { $dst_name = $src_name }
             "*.ac3" { $dst_name = $converted_dst_name }
             "*.flac" { $dst_name = $converted_dst_name }
+            "*.opus" { $dst_name = $converted_dst_name }
             "cover.*" { Convert-Cover $src_path (Join-Path $dst_folder $ImageName) }
             "*.iso" {}
+            "*.mp4" {}
             "*.pdf" {}
             "*.txt" {}
-            default { Write-Warning "Spurious $(Join-Path $src_folder $_)" }
+            default { Write-Warning "Unknown $(Join-Path $src_folder $_)" }
         }
         if ($dst_name) {
             $dst_path = Join-Path $dst_folder $dst_name
