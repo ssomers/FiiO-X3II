@@ -6,6 +6,7 @@ Set-Variable ImageHeight -Value 240 -Option Constant
 Set-Variable InsetHeight -Value 208 -Option Constant
 Set-Variable FfmpegPath -Value "C:\Programs\ffmpeg\bin\ffmpeg.exe" -Option Constant
 Set-Variable FfmpegQuality -Value 5 -Option Constant
+Set-Variable FfmpegJobs -Value 5 -Option Constant
 
 Add-Type -AssemblyName System.Drawing
 Add-Type -Assembly PresentationCore
@@ -81,7 +82,7 @@ ForEach-Object {
         Throw "Quirky Path $src_folder"
     }
     $c[1] = $c[1].Substring(0, $c[1].Length - $SourcePattern.Length + 1)
-    $dst_folder = $c -Join '\\'
+    $dst_folder = Resolve-Path -LiteralPath ($c -Join '\\')
 
     $cut_path = Join-Path $src_folder "cut.txt"
     $cuts = [string[]]@()
@@ -110,7 +111,7 @@ ForEach-Object {
             "*.wma" { $dst_name = $src_name }
             "*.ac3" { $dst_name = $converted_dst_name }
             "*.flac" { $dst_name = $converted_dst_name }
-            "*.opus" { $dst_name = $converted_dst_name }
+            "*.webm" { $dst_name = $converted_dst_name }
             "cover.*" { Convert-Cover $src_path (Join-Path $dst_folder $ImageName) }
             "*.iso" {}
             "*.mp4" {}
@@ -136,19 +137,30 @@ ForEach-Object {
                     }
                 }
                 else {
+                    $convert = $false
                     if (-Not (Test-Path -LiteralPath $dst_path)) {
                         Write-Output "Creating $dst_path"
-                        & $FfmpegPath -hide_banner -v warning -i $src_path -q $FfmpegQuality $dst_path
+                        $convert = $true
                     }
                     elseif ($_.LastWriteTime -gt (Get-Item -LiteralPath $dst_path).LastWriteTime) {
                         Write-Output "Updating $dst_path"
-                        & $FfmpegPath -hide_banner -v warning -i $src_path -q $FfmpegQuality $dst_path -y
+                        $convert = $true
+                    }
+                    if ($convert) {
+                        while ((Get-Job -State "Running").count -gt $FfmpegJobs) {
+                            Write-Host "Sleeping"
+                            Start-Sleep -Seconds 1
+                        }
+                        $j = Start-Job -ScriptBlock {
+                            & $using:FfmpegPath -hide_banner -v warning -i $using:src_path -filter:a "aformat=sample_rates=22050|24000|32000|44100|48000" -map_metadata 0 -q $using:FfmpegQuality $using:dst_path -y 2>&1
+                        }
                     }
                 }
                 ++$dst_count
             }
             ++$src_count
             $cuts = $cuts | Where-Object { $_ -ne $src_name }
+            Get-Job | Receive-Job
         }
     }
     ForEach ($n in $cuts) {
@@ -159,4 +171,5 @@ ForEach-Object {
     }
 }
 
+Get-Job | Wait-Job | Receive-Job
 Read-Host " :: Press Enter to close :"
