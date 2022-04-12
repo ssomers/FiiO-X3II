@@ -82,7 +82,7 @@ ForEach-Object {
         Throw "Quirky Path $src_folder"
     }
     $c[1] = $c[1].Substring(0, $c[1].Length - $SourcePattern.Length + 1)
-    $dst_folder = Resolve-Path -LiteralPath ($c -Join '\\')
+    $dst_folder = $c -Join '\\'
 
     $cut_path = Join-Path $src_folder "cut.txt"
     $cuts = [string[]]@()
@@ -91,19 +91,18 @@ ForEach-Object {
     $src_count = 0
     $dst_count = 0
 
-    if (-Not (Test-Path -LiteralPath $dst_folder)) {
-        New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
-    }
     $_.EnumerateFiles() |
     ForEach-Object {
         $src_path = $_.FullName
         $src_name = $_.Name
         $converted_dst_name = $_.BaseName + ".m4a"
+        $convert_cover = $false
         $dst_name = $null
         switch -Wildcard ($src_name) {
             "*.new.*" { break }
             "*.old.*" { break }
             "*.raw.*" { break }
+            "cover.*" { $convert_cover = $true }
             "*.m4a" { $dst_name = $src_name }
             "*.mp2" { $dst_name = $src_name }
             "*.mp3" { $dst_name = $src_name }
@@ -112,51 +111,60 @@ ForEach-Object {
             "*.ac3" { $dst_name = $converted_dst_name }
             "*.flac" { $dst_name = $converted_dst_name }
             "*.webm" { $dst_name = $converted_dst_name }
-            "cover.*" { Convert-Cover $src_path (Join-Path $dst_folder $ImageName) }
             "*.iso" {}
             "*.mp4" {}
             "*.pdf" {}
             "*.txt" {}
             default { Write-Warning "Unknown $(Join-Path $src_folder $_)" }
         }
-        if ($dst_name) {
-            $dst_path = Join-Path $dst_folder $dst_name
-            if ($cuts -And $cuts.Contains($src_name)) {
-                if (Test-Path -LiteralPath $dst_path) {
-                    Remove-Item -LiteralPath $dst_path -Confirm
-                }
+        if ($convert_cover -Or $dst_name) {
+            if (-Not (Test-Path -LiteralPath $dst_folder)) {
+                Write-Output "Creating $dst_folder"
+                New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
             }
-            else {
-                if ($src_name -eq $dst_name) {
-                    if (-Not (Test-Path -LiteralPath $dst_path)) {
-                        Write-Output "Linking $dst_path"
-                        New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
-                    }
-                    elseif ((Get-FileID $src_path) -ne (Get-FileID $dst_path)) {
-                        Write-Warning "Unhinged $dst_path"
+            $dst_folder = Resolve-Path -LiteralPath $dst_folder
+            if ($convert_cover) {
+                Convert-Cover $src_path (Join-Path $dst_folder $ImageName)
+            }
+            if ($dst_name) {
+                $dst_path = Join-Path $dst_folder $dst_name
+                if ($cuts -And $cuts.Contains($src_name)) {
+                    if (Test-Path -LiteralPath $dst_path) {
+                        Remove-Item -LiteralPath $dst_path -Confirm
                     }
                 }
                 else {
-                    $convert = $false
-                    if (-Not (Test-Path -LiteralPath $dst_path)) {
-                        Write-Output "Creating $dst_path"
-                        $convert = $true
-                    }
-                    elseif ($_.LastWriteTime -gt (Get-Item -LiteralPath $dst_path).LastWriteTime) {
-                        Write-Output "Updating $dst_path"
-                        $convert = $true
-                    }
-                    if ($convert) {
-                        while ((Get-Job -State "Running").count -gt $FfmpegJobs) {
-                            Write-Host "Sleeping"
-                            Start-Sleep -Seconds 1
+                    if ($src_name -eq $dst_name) {
+                        if (-Not (Test-Path -LiteralPath $dst_path)) {
+                            Write-Output "Linking $dst_path"
+                            New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
                         }
-                        $j = Start-Job -ScriptBlock {
-                            & $using:FfmpegPath -hide_banner -v warning -i $using:src_path -filter:a "aformat=sample_rates=22050|24000|32000|44100|48000" -map_metadata 0 -q $using:FfmpegQuality $using:dst_path -y 2>&1
+                        elseif ((Get-FileID $src_path) -ne (Get-FileID $dst_path)) {
+                            Write-Warning "Unhinged $dst_path"
                         }
                     }
+                    else {
+                        $convert = $false
+                        if (-Not (Test-Path -LiteralPath $dst_path)) {
+                            Write-Output "Creating $dst_path"
+                            $convert = $true
+                        }
+                        elseif ($_.LastWriteTime -gt (Get-Item -LiteralPath $dst_path).LastWriteTime) {
+                            Write-Output "Updating $dst_path"
+                            $convert = $true
+                        }
+                        if ($convert) {
+                            while ((Get-Job -State "Running").count -gt $FfmpegJobs) {
+                                Write-Host "Sleeping"
+                                Start-Sleep -Seconds 1
+                            }
+                            Start-Job -ScriptBlock {
+                                & $using:FfmpegPath -hide_banner -v warning -i $using:src_path -filter:a "aformat=sample_rates=22050|24000|32000|44100|48000" -map_metadata 0 -q $using:FfmpegQuality $using:dst_path -y 2>&1
+                            } | Out-Null
+                        }
+                    }
+                    ++$dst_count
                 }
-                ++$dst_count
             }
             ++$src_count
             $cuts = $cuts | Where-Object { $_ -ne $src_name }
