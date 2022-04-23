@@ -21,8 +21,8 @@ ForEach-Object {
     $cut_path = Join-Path $src_folder "cut.txt"
     $cuts = [string[]]@()
     $cuts += Get-Content -LiteralPath $cut_path -Encoding UTF8 -ErrorAction Ignore
-    $unused = $cuts
 
+    $cuts_unused = $cuts
     $cut_changes = 0
     $_.EnumerateFiles() |
     ForEach-Object {
@@ -40,12 +40,12 @@ ForEach-Object {
             "*.wma" { $dst_name = $src_name }
             "*.ac3" { $dst_name = $converted_dst_name }
             "*.flac" { $dst_name = $converted_dst_name }
-            "*.opus" { $dst_name = $converted_dst_name }
+            "*.webm" { $dst_name = $converted_dst_name }
         }
         if ($dst_name) {
             $dst_path = Join-Path $dst_folder $dst_name
             if ($cuts -And $cuts.Contains($src_name)) {
-                $unused = $unused | Where-Object { $_ -ne $src_name }
+                $cuts_unused = $cuts_unused | Where-Object { $_ -ne $src_name }
             }
             else {
                 if (-Not (Test-Path -LiteralPath $dst_path)) {
@@ -56,7 +56,7 @@ ForEach-Object {
             }
         }
     }
-    foreach ($n in $unused) {
+    foreach ($n in $cuts_unused) {
         Write-Output ("${cut_path}: dropping $n")
         $cuts = $cuts | Where-Object { $_ -ne $n }
         ++$cut_changes
@@ -103,7 +103,7 @@ ForEach-Object {
             $src_path1 = Join-Path $src_folder $_.Name
             $src_path2 = Join-Path $src_folder ($_.BaseName + ".ac3")
             $src_path3 = Join-Path $src_folder ($_.BaseName + ".flac")
-            $src_path4 = Join-Path $src_folder ($_.BaseName + ".opus")
+            $src_path4 = Join-Path $src_folder ($_.BaseName + ".webm")
             if (-Not (Test-Path -LiteralPath $src_path1) -And
                 -Not (Test-Path -LiteralPath $src_path2) -And
                 -Not (Test-Path -LiteralPath $src_path3) -And

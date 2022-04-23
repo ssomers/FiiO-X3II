@@ -112,6 +112,7 @@ ForEach-Object {
             "*.flac" { $dst_name = $converted_dst_name }
             "*.webm" { $dst_name = $converted_dst_name }
             "*.iso" {}
+            "*.llc" {}
             "*.mp4" {}
             "*.pdf" {}
             "*.txt" {}
