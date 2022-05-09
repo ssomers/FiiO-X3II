@@ -145,22 +145,14 @@ ForEach-Object {
                         }
                     }
                     else {
-                        $convert = $false
-                        if (-Not (Test-Path -LiteralPath $dst_path)) {
-                            Write-Output "Creating $dst_path"
-                            $convert = $true
-                        }
-                        elseif ($_.LastWriteTime -gt (Get-Item -LiteralPath $dst_path).LastWriteTime) {
-                            Write-Output "Updating $dst_path"
-                            $convert = $true
-                        }
-                        if ($convert) {
+                        $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
+                        if ($null -eq $dst -Or $_.LastWriteTime -gt $dst.LastWriteTime) {
                             while ((Get-Job -State "Running").count -gt $FfmpegJobs) {
-                                Write-Host "Sleeping"
                                 Start-Sleep -Seconds 1
                             }
+                            Write-Output "Writing $dst_path"
                             Start-Job -ScriptBlock {
-                                & $using:FfmpegPath -hide_banner -v warning -i $using:src_path -filter:a "aformat=sample_rates=22050|24000|32000|44100|48000" -map_metadata 0 -q $using:FfmpegQuality $using:dst_path -y 2>&1
+                                & $using:FfmpegPath -hide_banner -v warning -i $using:src_path -filter:a "aformat=sample_rates=22050|24000|32000|44100|48000,volume=replaygain=album" -map_metadata 0 -q $using:FfmpegQuality $using:dst_path -y 2>&1
                             } | Out-Null
                         }
                     }
