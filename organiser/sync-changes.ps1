@@ -6,7 +6,7 @@ Set-Variable ImageHeight -Value 240 -Option Constant
 Set-Variable InsetHeight -Value 208 -Option Constant
 Set-Variable FfmpegPath -Value "C:\Programs\ffmpeg\bin\ffmpeg.exe" -Option Constant
 Set-Variable FfmpegQuality -Value 5 -Option Constant
-Set-Variable FfmpegJobs -Value 5 -Option Constant
+$FfmpegJobs = (Get-WmiObject -class Win32_processor | ForEach-Object NumberOfCores) - 1
 
 Add-Type -AssemblyName System.Drawing
 Add-Type -Assembly PresentationCore
@@ -147,7 +147,7 @@ ForEach-Object {
                     else {
                         $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
                         if ($null -eq $dst -Or $_.LastWriteTime -gt $dst.LastWriteTime) {
-                            while ((Get-Job -State "Running").count -gt $FfmpegJobs) {
+                            while ((Get-Job -State "Running").count -ge $FfmpegJobs) {
                                 Start-Sleep -Seconds 1
                             }
                             Write-Output "Writing $dst_path"
