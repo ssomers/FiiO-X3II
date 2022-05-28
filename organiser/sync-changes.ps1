@@ -6,7 +6,8 @@ Set-Variable ImageHeight -Value 240 -Option Constant
 Set-Variable InsetHeight -Value 208 -Option Constant
 Set-Variable FfmpegPath -Value "C:\Programs\ffmpeg\bin\ffmpeg.exe" -Option Constant
 Set-Variable FfmpegQuality -Value 5 -Option Constant
-$FfmpegJobs = (Get-WmiObject -class Win32_processor | ForEach-Object NumberOfCores) - 1
+$FfmpegDate = [datetime]"2022-05-27"
+$FfmpegJobs = (Get-WmiObject -Class Win32_processor | ForEach-Object NumberOfCores) - 1
 
 Add-Type -AssemblyName System.Drawing
 Add-Type -Assembly PresentationCore
@@ -41,7 +42,7 @@ function Convert-Cover {
     $DstStream = New-Object -TypeName System.IO.MemoryStream -ArgumentList 48e3
     $jpegParams = New-Object -TypeName Drawing.Imaging.EncoderParameters -ArgumentList 1
     $jpegParams.Param[0] = New-Object -TypeName Drawing.Imaging.EncoderParameter -ArgumentList ([Drawing.Imaging.Encoder]::Quality, $ImageQuality)
-    $jpegCodec = [Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object -Property FormatDescription -eq "JPEG"
+    $jpegCodec = [Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object -Property FormatDescription -EQ "JPEG"
     $DstImage.Save($DstStream, $jpegCodec, $jpegParams)
 
     try {
@@ -146,7 +147,7 @@ ForEach-Object {
                     }
                     else {
                         $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
-                        if ($null -eq $dst -Or $_.LastWriteTime -gt $dst.LastWriteTime) {
+                        if ($null -eq $dst -Or $FfmpegDate -gt $dst.LastWriteTime -Or $_.LastWriteTime -gt $dst.LastWriteTime) {
                             while ((Get-Job -State "Running").count -ge $FfmpegJobs) {
                                 Start-Sleep -Seconds 1
                             }
