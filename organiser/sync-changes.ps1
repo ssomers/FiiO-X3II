@@ -71,7 +71,7 @@ function Get-FileID {
     (fsutil file queryFileID $LiteralPath) -Split " " |  Select-Object -Last 1
 }
 
-Write-Output "`n`n`n`n`n"
+Write-Host "`n`n`n`n`n"
 
 Get-ChildItem -Directory -Filter $SourcePattern |
 Get-ChildItem -Directory -Recurse |
@@ -153,7 +153,11 @@ ForEach-Object {
                             }
                             Write-Output "Writing $dst_path"
                             Start-Job -ScriptBlock {
-                                & $using:FfmpegPath -hide_banner -v warning -i $using:src_path -filter:a "aformat=sample_rates=22050|24000|32000|44100|48000,volume=replaygain=album" -map_metadata 0 -q $using:FfmpegQuality $using:dst_path -y 2>&1
+                                # Call operator & avoids the insane quoting (https://github.com/PowerShell/PowerShell/issues/5576)
+                                # but doesn't allow setting priorty and doesn't let the process complete on Ctrl-C.
+                                $p = Start-Process -WindowStyle "Hidden" -PassThru "$using:FfmpegPath" -ArgumentList "-hide_banner", "-v", "warning", "-i", "`"$using:src_path`"", "-filter:a", "aformat=sample_rates=22050|24000|32000|44100|48000,volume=replaygain=album", "-map_metadata", "0", "-q", $using:FfmpegQuality, "`"$using:dst_path`"", "-y"
+                                $p.PriorityClass = "BelowNormal"
+                                $p.WaitForExit() | Out-Null
                             } | Out-Null
                         }
                     }
