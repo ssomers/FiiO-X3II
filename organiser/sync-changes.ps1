@@ -38,12 +38,15 @@ function Convert-Cover {
     $DstImage = New-Object -TypeName Drawing.Bitmap -ArgumentList $ImageWidth, $ImageHeight
     $Inset = New-Object -TypeName Drawing.Rectangle -ArgumentList $InsetX, $InsetY, $InsetWidth, $InsetHeight
     [Drawing.Graphics]::FromImage($DstImage).DrawImage($SrcImage, $Inset)
+    $srcImage.Dispose()
 
     $DstStream = New-Object -TypeName System.IO.MemoryStream -ArgumentList 48e3
     $jpegParams = New-Object -TypeName Drawing.Imaging.EncoderParameters -ArgumentList 1
     $jpegParams.Param[0] = New-Object -TypeName Drawing.Imaging.EncoderParameter -ArgumentList ([Drawing.Imaging.Encoder]::Quality, $ImageQuality)
     $jpegCodec = [Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object -Property FormatDescription -EQ "JPEG"
     $DstImage.Save($DstStream, $jpegCodec, $jpegParams)
+    $DstStream.Close()
+    $NewDstBytes = $DstStream.ToArray()
 
     try {
         $OldDstBytes = [System.IO.File]::ReadAllBytes($DstPath)
@@ -53,11 +56,10 @@ function Convert-Cover {
         $OldDstBytes = [byte[]] @()
         $change = "Creating"
     }
-    if ($OldDstBytes.Length -ne $DstStream.Length -Or
-        [msvcrt]::memcmp($OldDstBytes, $DstStream.GetBuffer(), $DstStream.Length) -ne 0) {
-        $DstStream.Close()
+    if ($OldDstBytes.Length -ne $NewDstBytes.Length -Or
+        [msvcrt]::memcmp($OldDstBytes, $NewDstBytes, $NewDstBytes.Length) -ne 0) {
         Write-Output ("$change $DstPath")
-        [System.IO.File]::WriteAllBytes($DstPath, $DstStream.ToArray())
+        [System.IO.File]::WriteAllBytes($DstPath, $NewDstBytes)
     }
     else {
         #Write-Output ("Checked $DstPath")
