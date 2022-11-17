@@ -29,7 +29,8 @@ function Convert-Cover {
         $SrcImage = [Drawing.Image]::FromFile($SrcPath)
     }
     catch {
-        Write-Error "Cannot read $SrcPath"
+        Write-Warning -Message "Cannot read ${SrcPath}: $($_.FullyQualifiedErrorId)"
+        return
     }
     $InsetWidth = $SrcImage.Width / $SrcImage.Height * $InsetHeight
     $InsetX = ($ImageWidth - $InsetWidth) / 2
