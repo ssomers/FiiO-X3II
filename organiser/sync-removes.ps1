@@ -1,7 +1,7 @@
 Set-Variable SourcePattern -Value "*.src" -Option Constant
 Set-Variable ImageName -Value "folder.jpg" -Option Constant
 
-Write-Output "`n`n`n`n`n"
+Write-Host "`n`n`n`n`n"
 
 Get-ChildItem -Directory -Filter $SourcePattern |
 ForEach-Object {
@@ -49,7 +49,7 @@ ForEach-Object {
             }
             else {
                 if (-Not (Test-Path -LiteralPath $dst_path)) {
-                    Write-Output ($cut_path + ": adding " + $src_name)
+                    Write-Host $cut_path + ": adding " + $src_name
                     $cuts += $src_name
                     ++$cut_changes
                 }
@@ -57,7 +57,7 @@ ForEach-Object {
         }
     }
     foreach ($n in $cuts_unused) {
-        Write-Output ("${cut_path}: dropping $n")
+        Write-Host "${cut_path}: dropping $n"
         $cuts = $cuts | Where-Object { $_ -ne $n }
         ++$cut_changes
     }
@@ -66,11 +66,12 @@ ForEach-Object {
             $cuts | Sort-Object | Set-Content -LiteralPath $cut_path -Encoding UTF8
         }
         else {
-            Write-Output "${cut_path}: removing"
-            Remove-Item -Confirm -LiteralPath $cut_path
+            Write-Host "${cut_path}: removing"
+            Write-Output $cut_path
         }
     }
-}
+} |
+Remove-Item -Confirm
 
 Get-ChildItem -Directory -Filter $SourcePattern |
 ForEach-Object {
@@ -97,7 +98,7 @@ ForEach-Object {
         $src_folder = $c -Join '\\'
 
         $_.EnumerateFiles() |
-        Where-Object -Property Name -ne $ImageName |
+        Where-Object -Property Name -NE $ImageName |
         ForEach-Object {
             $dst_path = $_.FullName
             $src_path1 = Join-Path $src_folder $_.Name
@@ -108,10 +109,11 @@ ForEach-Object {
                 -Not (Test-Path -LiteralPath $src_path2) -And
                 -Not (Test-Path -LiteralPath $src_path3) -And
                 -Not (Test-Path -LiteralPath $src_path4)) {
-                Remove-Item -LiteralPath $dst_path -Confirm
+                $dst_path
             }
         }
     }
-}
+} |
+Remove-Item -Confirm
 
 Read-Host " :: Press Enter to close :"

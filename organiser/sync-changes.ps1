@@ -59,11 +59,11 @@ function Convert-Cover {
     }
     if ($OldDstBytes.Length -ne $NewDstBytes.Length -Or
         [msvcrt]::memcmp($OldDstBytes, $NewDstBytes, $NewDstBytes.Length) -ne 0) {
-        Write-Output ("$change $DstPath")
+        Write-Host "$change $DstPath"
         [System.IO.File]::WriteAllBytes($DstPath, $NewDstBytes)
     }
     else {
-        #Write-Output ("Checked $DstPath")
+        #Write-Host "Checked $DstPath"
     }
 }
 
@@ -124,7 +124,7 @@ ForEach-Object {
         }
         if ($convert_cover -Or $dst_name) {
             if (-Not (Test-Path -LiteralPath $dst_folder)) {
-                Write-Output "Creating $dst_folder"
+                Write-Host "Creating $dst_folder"
                 New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
             }
             $dst_folder = Resolve-Path -LiteralPath $dst_folder
@@ -135,13 +135,13 @@ ForEach-Object {
                 $dst_path = Join-Path $dst_folder $dst_name
                 if ($cuts -And $cuts.Contains($src_name)) {
                     if (Test-Path -LiteralPath $dst_path) {
-                        Remove-Item -LiteralPath $dst_path -Confirm
+                        Write-Output $dst_path
                     }
                 }
                 else {
                     if ($src_name -eq $dst_name) {
                         if (-Not (Test-Path -LiteralPath $dst_path)) {
-                            Write-Output "Linking $dst_path"
+                            Write-Host "Linking $dst_path"
                             New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
                         }
                         elseif ((Get-FileID $src_path) -ne (Get-FileID $dst_path)) {
@@ -154,7 +154,7 @@ ForEach-Object {
                             while ((Get-Job -State "Running").count -ge $FfmpegJobs) {
                                 Start-Sleep -Seconds 1
                             }
-                            Write-Output "Writing $dst_path"
+                            Write-Host "Writing $dst_path"
                             Start-Job -ScriptBlock {
                                 # Call operator & avoids the insane quoting (https://github.com/PowerShell/PowerShell/issues/5576)
                                 # but doesn't allow setting priority and doesn't let the process complete on Ctrl-C.
@@ -173,12 +173,13 @@ ForEach-Object {
         }
     }
     ForEach ($n in $cuts) {
-        Write-Warning ($cut_path + ": unused item " + $n)
+        Write-Warning $cut_path + ": unused item " + $n
     }
     if ($src_count -And -Not $dst_count) {
-        Write-Warning ("Unused folder " + $src_folder)
+        Write-Warning "Unused folder " + $src_folder
     }
-}
+} |
+Remove-Item -Confirm
 
 Get-Job | Wait-Job | Receive-Job
 Read-Host " :: Press Enter to close :"
