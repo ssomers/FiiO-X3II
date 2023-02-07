@@ -1,4 +1,5 @@
-Set-Variable SourcePattern -Value "*.src" -Option Constant
+Set-Variable FolderSrc -Value "src" -Option Constant
+Set-Variable FolderDst -Value "X3" -Option Constant
 Set-Variable ImageName -Value "folder.jpg" -Option Constant
 Set-Variable ImageQuality -Value 95 -Option Constant
 Set-Variable ImageWidth -Value 320 -Option Constant
@@ -76,17 +77,15 @@ function Get-FileID {
 
 Write-Host "`n`n`n`n`n"
 
-Get-ChildItem -Directory -Filter $SourcePattern |
-Get-ChildItem -Directory -Recurse |
+Get-ChildItem $FolderSrc -Directory -Recurse |
 ForEach-Object {
     $src_folder = Resolve-Path -LiteralPath $_.FullName -Relative
-    Write-Progress $src_folder
-    $c = $src_folder -Split '\\'
-    if ($c[0] -ne "." -Or -Not ($c[1] -Like $SourcePattern)) {
-        Throw "Quirky Path $src_folder"
+    if (-Not $src_folder.StartsWith(".\$FolderSrc\")) {
+        Throw "Quirky relative path $src_folder"
     }
-    $c[1] = $c[1].Substring(0, $c[1].Length - $SourcePattern.Length + 1)
-    $dst_folder = $c -Join '\\'
+    $sub = $src_folder.Substring(".\$FolderSrc\".Length)
+    $dst_folder = Join-Path $FolderDst $sub
+    Write-Progress $sub
 
     $cut_path = Join-Path $src_folder "cut.txt"
     $cuts = [string[]]@()

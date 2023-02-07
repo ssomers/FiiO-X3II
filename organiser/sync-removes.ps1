@@ -1,22 +1,21 @@
-Set-Variable SourcePattern -Value "*.src" -Option Constant
+Set-Variable FolderSrc -Value "src" -Option Constant
+Set-Variable FolderDst -Value "X3" -Option Constant
 Set-Variable ImageName -Value "folder.jpg" -Option Constant
 
 Write-Host "`n`n`n`n`n"
 
-Get-ChildItem -Directory -Filter $SourcePattern |
+Get-ChildItem $FolderSrc -Directory |
 ForEach-Object {
     Write-Progress "Looking for files deleted from mirror of $_"
-    $_
+    Write-Output $_
 } |
 Get-ChildItem -Directory -Recurse |
 ForEach-Object {
     $src_folder = Resolve-Path -LiteralPath $_.FullName -Relative
-    $c = $src_folder -Split '\\'
-    if ($c[0] -ne "." -Or -Not ($c[1] -Like $SourcePattern)) {
-        Throw "Quirky Path $src_folder"
+    if (-Not $src_folder.StartsWith(".\$FolderSrc\")) {
+        Throw "Quirky relative path $src_folder"
     }
-    $c[1] = $c[1].Substring(0, $c[1].Length - $SourcePattern.Length + 1)
-    $dst_folder = $c -Join '\\'
+    $dst_folder = $FolderDst + $src_folder.Substring(".\$FolderSrc".Length)
 
     $cut_path = Join-Path $src_folder "cut.txt"
     $cuts = [string[]]@()
@@ -73,29 +72,26 @@ ForEach-Object {
 } |
 Remove-Item -Confirm
 
-Get-ChildItem -Directory -Filter $SourcePattern |
+Get-ChildItem $FolderSrc -Directory |
 ForEach-Object {
     Write-Progress "Looking for files to be deleted from mirror of $_"
-    $_
+    Write-Output $_
 } |
 ForEach-Object {
     $src_top = Resolve-Path -LiteralPath $_.FullName -Relative
-    $c = $src_top -Split '\\'
-    if ($c[0] -ne "." -Or -Not ($c[1] -Like $SourcePattern)) {
-        Throw ("Quirky Path $src_top")
+    if (-Not $src_top.StartsWith(".\$FolderSrc\")) {
+        Throw "Quirky relative path $src_top"
     }
-    $c[1] = $c[1].Substring(0, $c[1].Length - $SourcePattern.Length + 1)
-    $dst_top = $c -Join '\\'
+    $sub = $src_top.Substring(".\$FolderSrc\".Length)
+    $dst_top = Join-Path $FolderDst $sub
 
     Get-ChildItem -LiteralPath $dst_top -Recurse -Directory |
     ForEach-Object {
         $dst_folder = Resolve-Path -LiteralPath $_.FullName -Relative
-        $c = $dst_folder -Split '\\'
-        if ($c[0] -ne ".") {
-            Throw ("Bad path $dst_folder")
+        if (-Not $dst_folder.StartsWith(".\$FolderDst\")) {
+            Throw "Bad path $dst_folder"
         }
-        $c[1] += ".src"
-        $src_folder = $c -Join '\\'
+        $src_folder = $FolderSrc + $dst_folder.Substring(".\$FolderDst".Length)
 
         $_.EnumerateFiles() |
         Where-Object -Property Name -NE $ImageName |
