@@ -48,7 +48,7 @@ ForEach-Object {
             }
             else {
                 if (-Not (Test-Path -LiteralPath $dst_path)) {
-                    Write-Host $cut_path + ": adding " + $src_name
+                    Write-Host "${cut_path}: adding $src_name"
                     $cuts += $src_name
                     ++$cut_changes
                 }
