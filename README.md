@@ -1,9 +1,9 @@
 Stuff to create a customized firmware for the FiiO X3II Digital Audio Player, and to shape album art for the same device. Binaries (somewhat unconventionally) published as releases.
 
 ## Customized firmware
-The last regular firmware version of the FiiO X3II digital audio player is [2.0 at FiiO's site](http://fiio.net/en/story/455). An interesting previous version is [1.4, the last with OTG support](http://www.fiio.me/forum.php?mod=viewthread&tid=40827) (adding storage on the USB port, which is not officially supported but apparently works for most).
+The last regular firmware version of the FiiO X3II digital audio player is [2.0 at FiiO's site](hhttps://forum.fiio.com/firmwareDown.do). An interesting previous version was 1.4, the last with OTG support (adding storage on the USB port, which is not officially supported but apparently works for most - I never tried myself).
  
-[FiiO allows the firmwares to be customised](http://fiio.me/forum.php?mod=viewthread&tid=41293) with alternative images and graphical properties (colours, font sizes...).
+FiiO allows the firmwares to be customised with alternative images and graphical properties (colours, font sizes… though their explanation on fiio.me has vanished).
 
 The [releases tab](https://github.com/ssomers/FiiO-X3II/releases) here lists my own cooked customized firmwares with these high contrast themes:
  1. White/green on black
@@ -40,7 +40,7 @@ By the way, in 2.0, these folders and files are not used at all by the firmware'
     litegui/theme?/number/R.png
     litegui/theme?/topbar/shade.png
 
-## Organizer
+## Content Organizer
 
 These Powershell scripts set up and maintain parallel directory trees with contents extracted from a source tree and prepared for the player, on a standard NTFS partition. It converts FLAC files to M4A, hardlinks already compressed files, converts cover art, or leaves out files listed in an optional file cut.txt.
 
