@@ -6,8 +6,8 @@ Set-Variable ImageWidth -Value 320 -Option Constant
 Set-Variable ImageHeight -Value 240 -Option Constant
 Set-Variable InsetHeight -Value 208 -Option Constant
 Set-Variable FfmpegPath -Value "C:\Programs\ffmpeg\bin\ffmpeg.exe" -Option Constant
-Set-Variable FfmpegQuality -Value 5 -Option Constant
-$FfmpegDate = [datetime]"2022-05-27"
+Set-Variable FfmpegQuality -Value 7 -Option Constant
+$FfmpegDate = [datetime]"2023-03-03"
 $FfmpegJobs = (Get-WmiObject -Class Win32_processor | ForEach-Object NumberOfCores) - 1
 
 Add-Type -AssemblyName System.Drawing
@@ -30,7 +30,7 @@ function Convert-Cover {
         $SrcImage = [Drawing.Image]::FromFile($SrcPath)
     }
     catch {
-        Write-Warning -Message "Cannot read ${SrcPath}: $($_.FullyQualifiedErrorId)"
+        Write-Warning "Cannot read ${SrcPath}: $($_.FullyQualifiedErrorId)"
         return
     }
     $InsetWidth = $SrcImage.Width / $SrcImage.Height * $InsetHeight
@@ -172,10 +172,10 @@ ForEach-Object {
         }
     }
     ForEach ($n in $cuts) {
-        Write-Warning $cut_path + ": unused item " + $n
+        Write-Warning "${cut_path}: unused item ""$n"""
     }
     if ($src_count -And -Not $dst_count) {
-        Write-Warning "Unused folder " + $src_folder
+        Write-Warning "Unused folder $src_folder"
     }
 } |
 Remove-Item -Confirm
