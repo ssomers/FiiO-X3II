@@ -2,67 +2,109 @@ Set-Variable FolderSrc -Value "src" -Option Constant
 Set-Variable FolderDst -Value "X3" -Option Constant
 Set-Variable ImageName -Value "folder.jpg" -Option Constant
 
+# Given an absolute path and a FullName found under it, return the diverging bit.
+function Get-Path-Suffix {
+    param (
+        [string] $TopPath,
+        [string] $SubPath
+    )
+    if (-Not $SubPath.StartsWith($TopPath)) {
+        Throw "Quirky path $SubPath"
+    }
+    $SubPath.Substring($TopPath.Length)
+}
+
+enum Treatment {
+    ignore
+    cover
+    copy
+    convert
+}
+
+function Get-Treatment {
+    param (
+        [string] $Filename
+    )
+
+    [Treatment]$treatment = switch -Wildcard ($Filename) {
+        "*.new.*" { "ignore"; break }
+        "*.old.*" { "ignore"; break }
+        "*.raw.*" { "ignore"; break }
+        "*.iso" { "ignore" }
+        "*.llc" { "ignore" }
+        "*.mp4" { "ignore" }
+        "*.pdf" { "ignore" }
+        "*.txt" { "ignore" }
+        "cover.*" { "cover" }
+        "*.m4a" { "copy" }
+        "*.mp2" { "copy" }
+        "*.mp3" { "copy" }
+        "*.ogg" { "copy" }
+        "*.wma" { "copy" }
+        "*.ac3" { "convert" }
+        "*.flac" { "convert" }
+        "*.webm" { "convert" }
+        default { "ignore"; Write-Warning "Unknown $(Join-Path $src_folder $_)" }
+    }
+    $treatment
+}
+
 Write-Host "`n`n`n`n`n"
+
+[string]$src_top = Resolve-Path -LiteralPath $FolderSrc
+[string]$dst_top = Resolve-Path -LiteralPath $FolderDst
 
 Get-ChildItem $FolderSrc -Directory |
 ForEach-Object {
-    Write-Progress "Looking for files deleted from mirror of $_"
+    $src_folder = $FolderSrc + (Get-Path-Suffix $src_top $_.FullName)
+    Write-Progress "Looking for files to be cut in $src_folder"
     Write-Output $_
 } |
 Get-ChildItem -Directory -Recurse |
 ForEach-Object {
-    $src_folder = Resolve-Path -LiteralPath $_.FullName -Relative
-    if (-Not $src_folder.StartsWith(".\$FolderSrc\")) {
-        Throw "Quirky relative path $src_folder"
-    }
-    $dst_folder = $FolderDst + $src_folder.Substring(".\$FolderSrc".Length)
+    $suffix = Get-Path-Suffix $src_top $_.FullName
+    $src_folder = $FolderSrc + $suffix
+    $dst_folder = $FolderDst + $suffix
 
     $cut_path = Join-Path $src_folder "cut.txt"
     $cuts = [string[]]@()
     $cuts += Get-Content -LiteralPath $cut_path -Encoding UTF8 -ErrorAction Ignore
-
-    $cuts_unused = $cuts
+    $cuts_new = $cuts
     $cut_changes = 0
     $_.EnumerateFiles() |
     ForEach-Object {
         $src_name = $_.Name
-        $converted_dst_name = $_.BaseName + ".m4a"
-        $dst_name = $null
-        switch -Wildcard ($src_name) {
-            "*.new.*" { break }
-            "*.old.*" { break }
-            "*.raw.*" { break }
-            "*.m4a" { $dst_name = $src_name }
-            "*.mp2" { $dst_name = $src_name }
-            "*.mp3" { $dst_name = $src_name }
-            "*.ogg" { $dst_name = $src_name }
-            "*.wma" { $dst_name = $src_name }
-            "*.ac3" { $dst_name = $converted_dst_name }
-            "*.flac" { $dst_name = $converted_dst_name }
-            "*.webm" { $dst_name = $converted_dst_name }
+        $src_basename = $_.BaseName
+        $treatment = Get-Treatment $src_name
+        $dst_name = switch ($treatment) {
+            "cover" { $ImageName }
+            "copy" { $src_name }
+            "convert" { $src_basename + ".m4a" -Replace ".hdcd.", "." }
         }
-        if ($dst_name) {
-            $dst_path = Join-Path $dst_folder $dst_name
-            if ($cuts -And $cuts.Contains($src_name)) {
-                $cuts_unused = $cuts_unused | Where-Object { $_ -ne $src_name }
-            }
-            else {
+        switch ($treatment) {
+            "ignore" { break }
+            { $true } {
+                if ($cuts -And $cuts.Contains($src_name)) {
+                    $cuts = $cuts | Where-Object { $_ -ne $src_name }
+                    break
+                }
+                $dst_path = Join-Path $dst_folder $dst_name
                 if (-Not (Test-Path -LiteralPath $dst_path)) {
-                    Write-Host "${cut_path}: adding $src_name"
-                    $cuts += $src_name
+                    Write-Host "${cut_path}: adding ""$src_name"""
+                    $cuts_new += $src_name
                     ++$cut_changes
                 }
             }
         }
     }
-    foreach ($n in $cuts_unused) {
-        Write-Host "${cut_path}: dropping $n"
-        $cuts = $cuts | Where-Object { $_ -ne $n }
+    ForEach ($n in $cuts) {
+        Write-Host "${cut_path}: dropping ""$n"""
+        $cuts_new = $cuts_new | Where-Object { $_ -ne $n }
         ++$cut_changes
     }
     if ($cut_changes) {
-        if ($cuts) {
-            $cuts | Sort-Object | Set-Content -LiteralPath $cut_path -Encoding UTF8
+        if ($cuts_new) {
+            $cuts_new | Sort-Object | Set-Content -LiteralPath $cut_path -Encoding UTF8
         }
         else {
             Write-Host "${cut_path}: removing"
@@ -72,40 +114,37 @@ ForEach-Object {
 } |
 Remove-Item -Confirm
 
-Get-ChildItem $FolderSrc -Directory |
+Get-ChildItem $FolderDst -Directory |
 ForEach-Object {
-    Write-Progress "Looking for files to be deleted from mirror of $_"
+    $dst_folder = $FolderDst + (Get-Path-Suffix $dst_top $_.FullName)
+    Write-Progress "Looking for files to be deleted from $dst_folder"
     Write-Output $_
 } |
+Get-ChildItem -Recurse -Directory |
 ForEach-Object {
-    $src_top = Resolve-Path -LiteralPath $_.FullName -Relative
-    if (-Not $src_top.StartsWith(".\$FolderSrc\")) {
-        Throw "Quirky relative path $src_top"
+    $suffix = Get-Path-Suffix $dst_top $_.FullName
+    $src_folder = $FolderSrc + $suffix
+
+    if (-Not (Test-Path -LiteralPath $src_folder)) {
+        Write-Output $_
     }
-    $sub = $src_top.Substring(".\$FolderSrc\".Length)
-    $dst_top = Join-Path $FolderDst $sub
-
-    Get-ChildItem -LiteralPath $dst_top -Recurse -Directory |
-    ForEach-Object {
-        $dst_folder = Resolve-Path -LiteralPath $_.FullName -Relative
-        if (-Not $dst_folder.StartsWith(".\$FolderDst\")) {
-            Throw "Bad path $dst_folder"
-        }
-        $src_folder = $FolderSrc + $dst_folder.Substring(".\$FolderDst".Length)
-
+    else {
         $_.EnumerateFiles() |
-        Where-Object -Property Name -NE $ImageName |
         ForEach-Object {
-            $dst_path = $_.FullName
-            $src_path1 = Join-Path $src_folder $_.Name
-            $src_path2 = Join-Path $src_folder ($_.BaseName + ".ac3")
-            $src_path3 = Join-Path $src_folder ($_.BaseName + ".flac")
-            $src_path4 = Join-Path $src_folder ($_.BaseName + ".webm")
-            if (-Not (Test-Path -LiteralPath $src_path1) -And
-                -Not (Test-Path -LiteralPath $src_path2) -And
-                -Not (Test-Path -LiteralPath $src_path3) -And
-                -Not (Test-Path -LiteralPath $src_path4)) {
-                $dst_path
+            $names = if ($_.Name -eq $ImageName) {
+                @("cover.jpg", "cover.jpeg", "cover.png", "cover.webm")
+            }
+            else {
+                @($_.Name,
+                  ($_.BaseName + ".ac3"),
+                  ($_.BaseName + ".flac"),
+                  ($_.BaseName + ".hdcd.flac"),
+                  ($_.BaseName + ".webm")
+                )
+            }
+            $t = foreach ($n in $names) { Join-Path $src_folder $n | Test-Path }
+            if ($t -NotContains $true) {
+                Write-Output $_.FullName
             }
         }
     }

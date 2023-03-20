@@ -75,17 +75,69 @@ function Get-FileID {
     (fsutil file queryFileID $LiteralPath) -Split " " |  Select-Object -Last 1
 }
 
+# Given an absolute path and a FullName found under it, return the diverging bit.
+function Get-Path-Suffix {
+    param (
+        [string] $TopPath,
+        [string] $SubPath
+    )
+    if (-Not $SubPath.StartsWith($TopPath)) {
+        Throw "Quirky path $SubPath"
+    }
+    $SubPath.Substring($TopPath.Length)
+}
+
+enum Treatment {
+    ignore
+    cover
+    copy
+    convert
+}
+
+function Get-Treatment {
+    param (
+        [string] $Filename
+    )
+
+    [Treatment]$treatment = switch -Wildcard ($Filename) {
+        "*.new.*" { "ignore"; break }
+        "*.old.*" { "ignore"; break }
+        "*.raw.*" { "ignore"; break }
+        "*.iso" { "ignore" }
+        "*.llc" { "ignore" }
+        "*.mp4" { "ignore" }
+        "*.pdf" { "ignore" }
+        "*.txt" { "ignore" }
+        "cover.*" { "cover" }
+        "*.m4a" { "copy" }
+        "*.mp2" { "copy" }
+        "*.mp3" { "copy" }
+        "*.ogg" { "copy" }
+        "*.wma" { "copy" }
+        "*.ac3" { "convert" }
+        "*.flac" { "convert" }
+        "*.webm" { "convert" }
+        default { "ignore"; Write-Warning "Unknown $(Join-Path $src_folder $_)" }
+    }
+    $treatment
+}
+
 Write-Host "`n`n`n`n`n"
 
-Get-ChildItem $FolderSrc -Directory -Recurse |
+[string]$src_top = Resolve-Path -LiteralPath $FolderSrc
+
+Get-ChildItem $FolderSrc -Directory |
+Get-ChildItem -Directory |
 ForEach-Object {
-    $src_folder = Resolve-Path -LiteralPath $_.FullName -Relative
-    if (-Not $src_folder.StartsWith(".\$FolderSrc\")) {
-        Throw "Quirky relative path $src_folder"
-    }
-    $sub = $src_folder.Substring(".\$FolderSrc\".Length)
-    $dst_folder = Join-Path $FolderDst $sub
-    Write-Progress $sub
+    $src_folder = $FolderSrc + (Get-Path-Suffix $src_top $_.FullName)
+    Write-Progress "Looking in $src_folder"
+    Write-Output $_
+} |
+Get-ChildItem -Directory -Recurse |
+ForEach-Object {
+    $suffix = Get-Path-Suffix $src_top $_.FullName
+    $src_folder = $FolderSrc + $suffix
+    $dst_folder = $FolderDst + $suffix
 
     $cut_path = Join-Path $src_folder "cut.txt"
     $cuts = [string[]]@()
@@ -98,78 +150,70 @@ ForEach-Object {
     ForEach-Object {
         $src_path = $_.FullName
         $src_name = $_.Name
-        $converted_dst_name = $_.BaseName + ".m4a"
-        $convert_cover = $false
-        $dst_name = $null
-        switch -Wildcard ($src_name) {
-            "*.new.*" { break }
-            "*.old.*" { break }
-            "*.raw.*" { break }
-            "cover.*" { $convert_cover = $true }
-            "*.m4a" { $dst_name = $src_name }
-            "*.mp2" { $dst_name = $src_name }
-            "*.mp3" { $dst_name = $src_name }
-            "*.ogg" { $dst_name = $src_name }
-            "*.wma" { $dst_name = $src_name }
-            "*.ac3" { $dst_name = $converted_dst_name }
-            "*.flac" { $dst_name = $converted_dst_name }
-            "*.webm" { $dst_name = $converted_dst_name }
-            "*.iso" {}
-            "*.llc" {}
-            "*.mp4" {}
-            "*.pdf" {}
-            "*.txt" {}
-            default { Write-Warning "Unknown $(Join-Path $src_folder $_)" }
+        $src_basename = $_.BaseName
+        $treatment = Get-Treatment $src_name
+        $dst_name = switch ($treatment) {
+            "cover" { $ImageName }
+            "copy" { $src_name }
+            "convert" { $src_basename + ".m4a" -Replace ".hdcd.", "." }
         }
-        if ($convert_cover -Or $dst_name) {
-            if (-Not (Test-Path -LiteralPath $dst_folder)) {
-                Write-Host "Creating $dst_folder"
-                New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
-            }
-            $dst_folder = Resolve-Path -LiteralPath $dst_folder
-            if ($convert_cover) {
-                Convert-Cover $src_path (Join-Path $dst_folder $ImageName)
-            }
-            if ($dst_name) {
-                $dst_path = Join-Path $dst_folder $dst_name
+        switch ($treatment) {
+            "ignore" { break }
+            { $true } {
                 if ($cuts -And $cuts.Contains($src_name)) {
-                    if (Test-Path -LiteralPath $dst_path) {
-                        Write-Output $dst_path
-                    }
+                    $cuts = $cuts | Where-Object { $_ -ne $src_name }
+                    break
                 }
-                else {
-                    if ($src_name -eq $dst_name) {
-                        if (-Not (Test-Path -LiteralPath $dst_path)) {
-                            Write-Host "Linking $dst_path"
-                            New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
-                        }
-                        elseif ((Get-FileID $src_path) -ne (Get-FileID $dst_path)) {
-                            Write-Warning "Unhinged $dst_path"
-                        }
-                    }
-                    else {
-                        $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
-                        if ($null -eq $dst -Or $FfmpegDate -gt $dst.LastWriteTime -Or $_.LastWriteTime -gt $dst.LastWriteTime) {
-                            while ((Get-Job -State "Running").count -ge $FfmpegJobs) {
-                                Start-Sleep -Seconds 1
-                            }
-                            Write-Host "Writing $dst_path"
-                            Start-Job -ScriptBlock {
-                                # Call operator & avoids the insane quoting (https://github.com/PowerShell/PowerShell/issues/5576)
-                                # but doesn't allow setting priority and doesn't let the process complete on Ctrl-C.
-                                $p = Start-Process -WindowStyle "Hidden" -PassThru "$using:FfmpegPath" -ArgumentList "-hide_banner", "-v", "warning", "-i", "`"$using:src_path`"", "-filter:a", "aformat=sample_rates=22050|24000|32000|44100|48000,volume=replaygain=album", "-map_metadata", "0", "-q", $using:FfmpegQuality, "`"$using:dst_path`"", "-y"
-                                $p.PriorityClass = "BelowNormal"
-                                $p.WaitForExit() | Out-Null
-                            } | Out-Null
-                        }
-                    }
-                    ++$dst_count
+                ++$src_count
+                if (-Not (Test-Path -LiteralPath $dst_folder)) {
+                    Write-Host "Creating $dst_folder"
+                    New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
+                }
+                $dst_folder = Resolve-Path -LiteralPath $dst_folder
+                $dst_path = Join-Path $dst_folder $dst_name
+            }
+            "cover" {
+                Convert-Cover $src_path $dst_path
+            }
+            "copy" {
+                ++$dst_count
+                $dst_path = Join-Path $dst_folder $src_name
+                if (-Not (Test-Path -LiteralPath $dst_path)) {
+                    Write-Host "Linking $dst_path"
+                    New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
+                }
+                elseif ((Get-FileID $src_path) -ne (Get-FileID $dst_path)) {
+                    Write-Warning "Unhinged $dst_path"
                 }
             }
-            ++$src_count
-            $cuts = $cuts | Where-Object { $_ -ne $src_name }
-            Get-Job | Receive-Job
+            "convert" {
+                ++$dst_count
+                $dst_name = $src_basename + ".m4a" -Replace ".hdcd.", "." 
+                $dst_path = Join-Path $dst_folder $dst_name
+                $ffmpeg_arglist = @("-hide_banner", "-v", "warning", "-i", "`"$src_path`"")
+                $ffmpeg_arglist += switch -Wildcard ($src_name) {
+                    "*.hdcd.*" { @("-filter:a", "hdcd", "-sample_fmt", "s32") }
+                    default { @("-filter:a", "aformat=sample_rates=22050|24000|32000|44100|48000") }
+                }
+                $ffmpeg_arglist += @("-filter:a", "volume=replaygain=album", "-map_metadata", "0", "-q", $FfmpegQuality, "`"$dst_path`"", "-y")
+
+                $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
+                if ($null -eq $dst -Or $FfmpegDate -gt $dst.LastWriteTime -Or $_.LastWriteTime -gt $dst.LastWriteTime) {
+                    while ((Get-Job -State "Running").count -ge $FfmpegJobs) {
+                        Start-Sleep -Seconds 0.5
+                    }
+                    Write-Host "Writing $dst_path"
+                    Start-Job -ScriptBlock {
+                        # Call operator & avoids the insane quoting (https://github.com/PowerShell/PowerShell/issues/5576)
+                        # but doesn't allow setting priority and doesn't let the process complete on Ctrl-C.
+                        $p = Start-Process -WindowStyle "Hidden" -PassThru "$using:FfmpegPath" -ArgumentList $using:ffmpeg_arglist
+                        $p.PriorityClass = "BelowNormal"
+                        $p.WaitForExit() | Out-Null
+                    } | Out-Null
+                }
+            }
         }
+        #Get-Job | Receive-Job
     }
     ForEach ($n in $cuts) {
         Write-Warning "${cut_path}: unused item ""$n"""
@@ -177,8 +221,7 @@ ForEach-Object {
     if ($src_count -And -Not $dst_count) {
         Write-Warning "Unused folder $src_folder"
     }
-} |
-Remove-Item -Confirm
+}
 
 Get-Job | Wait-Job | Receive-Job
 Read-Host " :: Press Enter to close :"
