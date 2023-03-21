@@ -3,5 +3,5 @@ theme_icon_
 litegui\theme2
 litegui\theme3
 litegui\theme4
-litegui\theme6
+litegui\theme5
 .xcf

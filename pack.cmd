@@ -14,21 +14,21 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     if errorlevel 1 set /P= changes_edited
     xcopy changes_generated unpacked_tmp /Q/S/Y
     if errorlevel 1 set /P= changes_generated
-    for %%n in (charge scrollbar theme usb) do (
-        xcopy unpacked_tmp\litegui\theme1\%%n unpacked_tmp\litegui\theme5\%%n /Q/S/I
-        if errorlevel 1 set /P= unpacked_tmp\litegui\theme1\%%n
+    for %%n in (charge number scrollbar theme usb) do (
+        xcopy unpacked_tmp\litegui\theme1\%%n unpacked_tmp\litegui\theme6\%%n /Q/S/I
+        if errorlevel 1 set /P= unpacked_tmp\litegui\theme1\%%n @ theme6
     )
     for %%t in (2 3 4) do (
         xcopy unpacked_tmp\litegui\theme1 unpacked_tmp\litegui\theme%%t /Q/S/I
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme1
         copy changes_edited\litegui\theme%%t\config.ini unpacked_tmp\litegui\theme%%t
-        if errorlevel 1 set /P= changes_edited changes_edited\litegui\theme%%t\config.ini
+        if errorlevel 1 set /P= changes_edited\litegui\theme%%t\config.ini
     )
-    for %%t in (6) do (
-        xcopy unpacked_tmp\litegui\theme5 unpacked_tmp\litegui\theme%%t /Q/S/I
-        if errorlevel 1 set /P= unpacked_tmp\litegui\theme5
-        xcopy changes_edited\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/Y
-        if errorlevel 1 set /P= changes_edited changes_edited\litegui\theme%%t
+    for %%t in (5) do (
+        xcopy unpacked_tmp\litegui\theme1 unpacked_tmp\litegui\theme%%t /Q/S/I
+        if errorlevel 1 set /P= unpacked_tmp\litegui\theme1
+        xcopy changes_edited\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/I/Y
+        if errorlevel 1 set /P= changes_edited\litegui\theme%%t
     )
 
     if %%v == 1.4 for %%t in (1 2 3 4 5 6) do (
@@ -39,7 +39,7 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
         if errorlevel 1 set /P= changes_edited\litegui\bg\wallpaper.png
         for %%n in (category\menu\line category\menu\line_s m3u\long_menu_bg msg\bg_base msg\dock_insert msg\dock_remove msg\full msg\lock msg\low msg\none number\L number\R) do (
             copy changes_edited\litegui\theme1\eq\slider.png unpacked_tmp\litegui\theme%%t\%%n.png
-            if errorlevel 1 set /P= changes_edited\litegui\theme1\eq\slider.png
+            if errorlevel 1 set /P= changes_edited\litegui\theme1\eq\slider.png @ theme%%t\%%n.png
         )
         for %%n in (bg album album_s all all_s artist artist_s collect collect_s genre genre_s) do (
             copy unpacked_tmp\litegui\theme%%t\category\menu\%%n.png unpacked_tmp\litegui\theme%%t\category\main\

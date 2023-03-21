@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/nfnt/resize"
 	"image"
 	"image/color"
 	"image/draw"
@@ -11,6 +10,8 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+
+	"github.com/nfnt/resize"
 )
 
 type slice struct {
@@ -132,15 +133,15 @@ func generate(width int, height int, fnamePattern string, first int, last int, j
 }
 
 func main() {
-	os.Chdir("..") // thanks you, Go 1.16
+	os.Chdir("..") // thank you, Go 1.16
 	for _, n := range []string{"playing", "category", "explorer", "play_set", "sys_set"} {
 		generate(56, 72, filepath.Join("changes_generated", "litegui", "theme1", "launcher", n+"_f.png"), 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 			var s slice
 			s.center = image.Point{28, 17}
 			s.outerradius = 18
 			s.inneralpha = 1
-			s.outeralpha = 0.2
-			fg := color.Gray{0xFF}
+			s.outeralpha = 0.75
+			fg := color.RGBA{0xFF, 0x9B, 0x37, 0xFF}
 			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
 
 			iconfilename := filepath.Join("changes_edited", "litegui", "theme1", "launcher", n+".png")
@@ -196,13 +197,13 @@ func main() {
 		draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Over)
 	})
 
-	colors := []color.Color{
-		color.RGBA{0x66, 0x99, 0x00, 0xFF},
-		color.RGBA{0x66, 0x99, 0x00, 0xFF},
-		color.RGBA{0x66, 0x99, 0x00, 0xFF},
-		color.RGBA{0x66, 0x99, 0x00, 0xFF},
-		color.RGBA{0x00, 0x00, 0x99, 0xFF},
-		color.RGBA{0x33, 0x33, 0x33, 0xFF},
+	theme_colors := []color.Color{
+		color.RGBA{0x99, 0xCC, 0x00, 0xFF},
+		color.RGBA{0x99, 0xCC, 0x00, 0xFF},
+		color.RGBA{0x99, 0xCC, 0x00, 0xFF},
+		color.RGBA{0x99, 0xCC, 0x00, 0xFF},
+		color.RGBA{0xCC, 0xCC, 0xCC, 0xFF},
+		color.RGBA{0x66, 0x66, 0x99, 0xFF},
 	}
 	generate(128, 128, filepath.Join("changes_generated", "litegui", "theme1", "theme", "theme_%d.png"), 1, 6, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		outerradius := 64.0
@@ -217,7 +218,7 @@ func main() {
 			if j == i {
 				ci = c
 			}
-			var fg = colors[j-1]
+			var fg = theme_colors[j-1]
 			var s slice
 			s.center = cent
 			s.outerradius = outerradius
