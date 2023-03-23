@@ -5,7 +5,6 @@ Set-Variable ImageQuality -Value 95 -Option Constant
 Set-Variable ImageWidth -Value 320 -Option Constant
 Set-Variable ImageHeight -Value 240 -Option Constant
 Set-Variable InsetHeight -Value 208 -Option Constant
-Set-Variable FfmpegPath -Value "C:\Programs\ffmpeg\bin\ffmpeg.exe" -Option Constant
 Set-Variable FfmpegQuality -Value 7 -Option Constant
 $FfmpegDate = [datetime]"2023-03-03"
 $FfmpegJobs = (Get-WmiObject -Class Win32_processor | ForEach-Object NumberOfCores) - 1
@@ -152,6 +151,7 @@ ForEach-Object {
         $src_name = $_.Name
         $src_basename = $_.BaseName
         $treatment = Get-Treatment $src_name
+        $is_hdcd = $src_name -contains ".hdcd."
         $dst_name = switch ($treatment) {
             "cover" { $ImageName }
             "copy" { $src_name }
@@ -188,32 +188,42 @@ ForEach-Object {
             }
             "convert" {
                 ++$dst_count
-                $dst_name = $src_basename + ".m4a" -Replace ".hdcd.", "." 
                 $dst_path = Join-Path $dst_folder $dst_name
-                $ffmpeg_arglist = @("-hide_banner", "-v", "warning", "-i", "`"$src_path`"")
-                $ffmpeg_arglist += switch -Wildcard ($src_name) {
-                    "*.hdcd.*" { @("-filter:a", "hdcd", "-sample_fmt", "s32") }
-                    default { @("-filter:a", "aformat=sample_rates=22050|24000|32000|44100|48000") }
+                $filters = if ($is_hdcd) {
+                    { @("hdcd=disable_autoconvert=0") }
+                    { @("aformat=sample_rates=48000|44100|32000|24000|22050|16000|12000|11025|8000|7350") }
                 }
-                $ffmpeg_arglist += @("-filter:a", "volume=replaygain=album", "-map_metadata", "0", "-q", $FfmpegQuality, "`"$dst_path`"", "-y")
+                $filters += @("volume=replaygain=album")
+                $ffmpeg_arglist = @("-loglevel", "warning")
+                $ffmpeg_arglist += @("-i", "`"$src_path`"")
+                $ffmpeg_arglist += @("-filter:a", ($filters -join ","))
+                $ffmpeg_arglist += @("-q:a", $FfmpegQuality)
+                $ffmpeg_arglist += @("`"$dst_path`"", "-y")
 
                 $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
-                if ($null -eq $dst -Or $FfmpegDate -gt $dst.LastWriteTime -Or $_.LastWriteTime -gt $dst.LastWriteTime) {
+                if ($null -eq $dst -Or -Not $dst.Length -Or $FfmpegDate -gt $dst.LastWriteTime -Or $_.LastWriteTime -gt $dst.LastWriteTime) {
                     while ((Get-Job -State "Running").count -ge $FfmpegJobs) {
                         Start-Sleep -Seconds 0.5
                     }
                     Write-Host "Writing $dst_path"
                     Start-Job -ScriptBlock {
-                        # Call operator & avoids the insane quoting (https://github.com/PowerShell/PowerShell/issues/5576)
-                        # but doesn't allow setting priority and doesn't let the process complete on Ctrl-C.
-                        $p = Start-Process -WindowStyle "Hidden" -PassThru "$using:FfmpegPath" -ArgumentList $using:ffmpeg_arglist
+                        # Call operator & avoids the insane quoting needed for file names
+                        # (https://github.com/PowerShell/PowerShell/issues/5576) but doesn't allow
+                        # setting priority and doesn't let the process complete on Ctrl-C.
+                        # We can't use -RedirectStandardError, it blocks the process from the start.
+                        $p = Start-Process -WindowStyle "Hidden" -PassThru "ffmpeg.exe" -ArgumentList $using:ffmpeg_arglist
                         $p.PriorityClass = "BelowNormal"
-                        $p.WaitForExit() | Out-Null
+                        $p.WaitForExit()
+                        $dst = Get-Item -LiteralPath $using:dst_path -ErrorAction:SilentlyContinue
+                        if ($null -eq $dst -Or -Not $dst.Length) {
+                            Remove-Item -LiteralPath $using:dst_path
+                            "Failed to create $using:dst_path {ffmpeg $using:ffmpeg_arglist}"
+                        }
                     } | Out-Null
                 }
             }
         }
-        #Get-Job | Receive-Job
+        Get-Job | Receive-Job | Write-Error
     }
     ForEach ($n in $cuts) {
         Write-Warning "${cut_path}: unused item ""$n"""
@@ -223,5 +233,5 @@ ForEach-Object {
     }
 }
 
-Get-Job | Wait-Job | Receive-Job
+Get-Job | Wait-Job | Receive-Job | Write-Error
 Read-Host " :: Press Enter to close :"
