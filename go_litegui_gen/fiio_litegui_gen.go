@@ -135,14 +135,20 @@ func generate(width int, height int, fnamePattern string, first int, last int, j
 func main() {
 	os.Chdir("..") // thank you, Go 1.16
 	for _, n := range []string{"playing", "category", "explorer", "play_set", "sys_set"} {
-		generate(56, 72, filepath.Join("changes_generated", "litegui", "theme1", "launcher", n+"_f.png"), 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
-			var s slice
-			s.center = image.Point{28, 17}
-			s.outerradius = 18
-			s.inneralpha = 1
-			s.outeralpha = 0.75
-			fg := color.RGBA{0xFF, 0x9B, 0x37, 0xFF}
-			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &s, image.ZP, draw.Src)
+		width := 50
+		height := 50
+		generate(width, height, filepath.Join("changes_generated", "litegui", "theme1", "launcher", n+"_f.png"), 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
+			thickness := 2
+			offset := 1
+			top := image.Rect(offset, 0, width-1-offset, thickness)
+			left := image.Rect(0, offset, thickness, height-1-offset)
+			right := image.Rect(width-1-thickness, offset, width-1, height-1-offset)
+			bottom := image.Rect(offset, height-1-thickness, width-1-offset, height-1)
+			fg := color.Gray{0xFF}
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &top, image.ZP, draw.Src)
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &left, image.ZP, draw.Src)
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &right, image.ZP, draw.Src)
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &bottom, image.ZP, draw.Src)
 
 			iconfilename := filepath.Join("changes_edited", "litegui", "theme1", "launcher", n+".png")
 			iconreader, err := os.Open(iconfilename)
@@ -154,7 +160,7 @@ func main() {
 			if err != nil {
 				panic(fmt.Sprintf("%s: %s", iconfilename, err))
 			}
-			draw.Draw(img, rect, icon, image.Point{0, 0}, draw.Over)
+			draw.Draw(img, rect, icon, image.Point{-1, -1}, draw.Over)
 		})
 	}
 
@@ -164,10 +170,10 @@ func main() {
 	fname_launcher_circle := filepath.Join("changes_generated", "litegui", "theme1", "launcher", "circle.png")
 	circle_draw := func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
 		f := float64(i) / float64(45)
-		angle := (1.0 - f) * math.Pi / 2.0
+		angle := (f + 0.1) / 1.1 * math.Pi / 2.0
 		var center image.Point
-		center.X = int(math.Round(math.Cos(angle)*160)) + 0
-		center.Y = int(math.Round(math.Sin(angle)*-240)) + 300
+		center.X = int(math.Round(math.Sin(angle)*(160+40))) - 40
+		center.Y = int(math.Round(math.Cos(angle)*-260)) + 320
 		width := 40 + uint(400*f)
 		draw_png(img, rect, circle_fname, center, width)
 	}

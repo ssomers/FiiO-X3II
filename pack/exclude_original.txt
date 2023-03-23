@@ -3,6 +3,7 @@ litegui\boot_animation
 litegui\theme1\boot_animation
 litegui\theme1\category
 litegui\theme1\charge
+litegui\theme1\launcher
 litegui\theme1\list
 litegui\theme1\m3u
 litegui\theme1\msg
@@ -22,14 +23,5 @@ litegui\theme2
 litegui\theme3
 litegui\theme4
 litegui\theme5
-litegui\theme6\boot_animation
-litegui\theme6\charge
-litegui\theme6\list
-litegui\theme6\number
-litegui\theme6\play_settings
-litegui\theme6\playing
-litegui\theme6\scrollbar
-litegui\theme6\theme
-litegui\theme6\topbar
-litegui\theme6\usb
+litegui\theme6
 litegui\test

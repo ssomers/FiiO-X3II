@@ -8,27 +8,20 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     xcopy unpacked_original_%%v unpacked_tmp /Q/S/I /EXCLUDE:pack\exclude_original.txt
     if errorlevel 1 set /P= unpacked_original_%%v
 
-    rem Copy without themes 2,3,4 and 6, because they need to be superimposed
-    rem on the customization of theme1 resp. theme5
+    rem Copy without themes 2 to 6, because we will superimpose them explicitly.
     xcopy changes_edited unpacked_tmp /Q/S/Y /EXCLUDE:pack\exclude_partial.txt
     if errorlevel 1 set /P= changes_edited
     xcopy changes_generated unpacked_tmp /Q/S/Y
     if errorlevel 1 set /P= changes_generated
-    for %%n in (charge number scrollbar theme usb) do (
-        xcopy unpacked_tmp\litegui\theme1\%%n unpacked_tmp\litegui\theme6\%%n /Q/S/I
-        if errorlevel 1 set /P= unpacked_tmp\litegui\theme1\%%n @ theme6
-    )
-    for %%t in (2 3 4) do (
-        xcopy unpacked_tmp\litegui\theme1 unpacked_tmp\litegui\theme%%t /Q/S/I
-        if errorlevel 1 set /P= unpacked_tmp\litegui\theme1
-        copy changes_edited\litegui\theme%%t\config.ini unpacked_tmp\litegui\theme%%t
-        if errorlevel 1 set /P= changes_edited\litegui\theme%%t\config.ini
-    )
-    for %%t in (5) do (
+    for %%t in (2 3 4 5 6) do (
         xcopy unpacked_tmp\litegui\theme1 unpacked_tmp\litegui\theme%%t /Q/S/I
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme1
         xcopy changes_edited\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/I/Y
         if errorlevel 1 set /P= changes_edited\litegui\theme%%t
+    )
+    for %%n in (0 1 2 3 4 5) do (
+        copy changes_edited\litegui\theme6\topbar\battery%%n.png unpacked_tmp\litegui\theme5\topbar
+        if errorlevel 1 set /P= changes_edited\litegui\theme6\topbar\battery%%n.png
     )
 
     if %%v == 1.4 for %%t in (1 2 3 4 5 6) do (
@@ -78,7 +71,7 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
         pack\packtools --pack -i unpacked_tmp -o X3II.fw -m x3ii
         if errorlevel 1 pause
     )
-    rmdir /Q/S unpacked_tmp
+    if %%v == 1.4 rmdir /Q/S unpacked_tmp
     if errorlevel 1 set /P= unpacked_tmp
 )
 rmdir /Q/S changes_generated
