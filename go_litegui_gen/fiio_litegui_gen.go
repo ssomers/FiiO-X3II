@@ -58,14 +58,13 @@ func (d *slice) At(x, y int) color.Color {
 	if rr < minrr || maxrr < rr {
 		return color.Transparent
 	}
+	a := math.Atan2(-dy, dx)
 	if d.angleA < d.angleB {
-		a := math.Atan2(-dy, dx)
 		if a < d.angleA || d.angleB < a {
 			return color.Transparent
 		}
 	}
 	if d.angleA > d.angleB {
-		a := math.Atan2(-dy, dx)
 		if d.angleB < a && a < d.angleA {
 			return color.Transparent
 		}
@@ -137,18 +136,34 @@ func main() {
 	for _, n := range []string{"playing", "category", "explorer", "play_set", "sys_set"} {
 		width := 50
 		height := 50
+		offset := 10
+		thickness := 2
+		fg := color.Gray{0xFF}
 		generate(width, height, filepath.Join("changes_generated", "litegui", "theme1", "launcher", n+"_f.png"), 0, 0, nil, func(i int, rect image.Rectangle, cent image.Point, img draw.Image) {
-			thickness := 2
-			offset := 1
-			top := image.Rect(offset, 0, width-1-offset, thickness)
-			left := image.Rect(0, offset, thickness, height-1-offset)
-			right := image.Rect(width-1-thickness, offset, width-1, height-1-offset)
-			bottom := image.Rect(offset, height-1-thickness, width-1-offset, height-1)
-			fg := color.Gray{0xFF}
-			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &top, image.ZP, draw.Src)
-			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &left, image.ZP, draw.Src)
-			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &right, image.ZP, draw.Src)
-			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &bottom, image.ZP, draw.Src)
+			north := image.Rect(offset, 0, width-1-offset, thickness)
+			west := image.Rect(0, offset, thickness, height-1-offset)
+			east := image.Rect(width-1-thickness, offset, width-1, height-1-offset)
+			south := image.Rect(offset, height-1-thickness, width-1-offset, height-1)
+			nw := slice{image.Pt(offset, offset),
+				float64(offset - thickness), float64(offset), 1.0, 1.0,
+				math.Pi / 2, math.Pi}
+			ne := slice{image.Pt(width-1-offset, offset),
+				float64(offset - thickness), float64(offset), 1.0, 1.0,
+				0, math.Pi / 2}
+			sw := slice{image.Pt(offset, height-1-offset),
+				float64(offset - thickness), float64(offset), 1.0, 1.0,
+				-math.Pi, -math.Pi / 2}
+			se := slice{image.Pt(width-1-offset, height-1-offset),
+				float64(offset - thickness), float64(offset), 1.0, 1.0,
+				-math.Pi / 2, 0}
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &nw, image.ZP, draw.Src)
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &ne, image.ZP, draw.Src)
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &sw, image.ZP, draw.Src)
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &se, image.ZP, draw.Src)
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &north, image.ZP, draw.Src)
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &west, image.ZP, draw.Src)
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &east, image.ZP, draw.Src)
+			draw.DrawMask(img, rect, &image.Uniform{fg}, image.ZP, &south, image.ZP, draw.Src)
 
 			iconfilename := filepath.Join("changes_edited", "litegui", "theme1", "launcher", n+".png")
 			iconreader, err := os.Open(iconfilename)
