@@ -2,7 +2,7 @@
 if exist unpacked_tmp rmdir /Q/S unpacked_tmp
 if exist changes_generated rmdir /Q/S changes_generated
 pushd go_litegui_gen
-go run fiio_litegui_gen.go
+go run main.go
 popd
 for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
     xcopy unpacked_original_%%v unpacked_tmp /Q/S/I /EXCLUDE:pack\exclude_original.txt
@@ -18,10 +18,6 @@ for %%v in (1.4 2.0) do if exist unpacked_original_%%v (
         if errorlevel 1 set /P= unpacked_tmp\litegui\theme1
         xcopy changes_edited\litegui\theme%%t unpacked_tmp\litegui\theme%%t /Q/S/I/Y
         if errorlevel 1 set /P= changes_edited\litegui\theme%%t
-    )
-    for %%n in (0 1 2 3 4 5) do (
-        copy changes_edited\litegui\theme6\topbar\battery%%n.png unpacked_tmp\litegui\theme5\topbar
-        if errorlevel 1 set /P= changes_edited\litegui\theme6\topbar\battery%%n.png
     )
 
     if %%v == 1.4 for %%t in (1 2 3 4 5 6) do (

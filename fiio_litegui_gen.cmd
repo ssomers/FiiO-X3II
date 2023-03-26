@@ -1,5 +1,6 @@
 @echo off
-cd go_litegui_gen
-go run %~n0.go
+pushd go_litegui_gen
+go run main.go
+popd
 set<nul /P=Press any key to close...
 pause>nul
