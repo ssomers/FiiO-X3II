@@ -259,7 +259,7 @@ func main() {
 		color.RGBA{0x99, 0xCC, 0x00, 0xFF},
 		color.RGBA{0x99, 0xCC, 0x00, 0xFF},
 		color.RGBA{0x99, 0xCC, 0x00, 0xFF},
-		color.RGBA{0xCC, 0xCC, 0xCC, 0xFF},
+		color.RGBA{0x99, 0xCC, 0x00, 0xFF},
 		color.RGBA{0x66, 0x66, 0x99, 0xFF},
 	}
 	generate(filepath.Join("..", "changes_generated", "litegui", "theme1", "theme", "theme_%d.png"), 1, 6, nil, func(i int) draw.Image {
@@ -268,7 +268,7 @@ func main() {
 		outerradius := 64.0
 		innerradius := 60.0
 		iconradius := 48.0
-		cutoffradius := 16.0
+		centerradius := 20.0
 		var ci float64 // center angle of slice in radians
 		for j := 1; j <= 6; j++ {
 			a := (float64((9-j)%8) - 4.0) / 4.0 * math.Pi
@@ -291,10 +291,10 @@ func main() {
 		}
 		var s slice
 		s.center = bounds.Min.Add(bounds.Max.Div(2))
-		s.outerradius = cutoffradius
+		s.outerradius = centerradius
 		s.inneralpha = 1.0
 		s.outeralpha = 1.0
-		draw.DrawMask(img, bounds, &image.Uniform{color.RGBA{0x99, 0x99, 0x99, 0xFF}}, image.ZP, &s, image.ZP, draw.Over)
+		draw.DrawMask(img, bounds, &image.Uniform{color.Gray{0xCC}}, image.ZP, &s, image.ZP, draw.Over)
 
 		iconfilename := fmt.Sprintf("theme_icon_%d.png", i)
 		var center image.Point

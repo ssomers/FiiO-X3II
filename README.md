@@ -6,12 +6,8 @@ The last regular firmware version of the FiiO X3II digital audio player is [2.0 
 FiiO allows the firmwares to be customised with alternative images and graphical properties (colours, font sizes… though their explanation on fiio.me has vanished).
 
 The [releases tab](https://github.com/ssomers/FiiO-X3II/releases) here lists my own cooked customized firmwares with these high contrast themes:
- 1. White/green on black with tiny font
- 2. Same with normal font
- 3. Same with big font - the biggest that still shows all letters completely
- 4. Same with an overly tall font - cutting off the tail of lowercase letters g, j, p, q, y.
- 5. A variation on request
- 6. White/orange/pastel colors with pacman progress bar, not entirely finished
+ 1. to 5. White/green on black with increasing font size (the 5th one so large that the tail of lowercase letters g, j, p, q, y is cut off).
+ 6. White/orange/pastel colors with pacman progress bar
 
 ### DIY
 To generate customized firmware yourself (probably incomplete steps):
