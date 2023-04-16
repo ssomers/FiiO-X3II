@@ -87,6 +87,7 @@ function Get-Path-Suffix {
 }
 
 enum Treatment {
+    unknown
     ignore
     cover
     copy
@@ -116,7 +117,7 @@ function Get-Treatment {
         "*.ac3" { "convert" }
         "*.flac" { "convert" }
         "*.webm" { "convert" }
-        default { "ignore"; Write-Warning "Unknown $(Join-Path $src_folder $_)" }
+        default { "unknown" }
     }
     $treatment
 }
@@ -150,6 +151,7 @@ ForEach-Object {
         $src_path = $_.FullName
         $src_name = $_.Name
         $src_basename = $_.BaseName
+        $src_LastWriteTime = $_.LastWriteTime
         $treatment = Get-Treatment $src_name
         $is_hdcd = $src_name -contains ".hdcd."
         $dst_name = switch ($treatment) {
@@ -158,7 +160,13 @@ ForEach-Object {
             "convert" { $src_basename + ".m4a" -Replace ".hdcd.", "." }
         }
         switch ($treatment) {
-            "ignore" { break }
+            "unknown" {
+                Write-Warning "Unknown $src_path"
+                break
+            }
+            "ignore" {
+                break
+            }
             { $true } {
                 if ($cuts -And $cuts.Contains($src_name)) {
                     $cuts = $cuts | Where-Object { $_ -ne $src_name }
@@ -201,7 +209,7 @@ ForEach-Object {
                 $ffmpeg_arglist += @("`"$dst_path`"", "-y")
 
                 $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
-                if ($null -eq $dst -Or -Not $dst.Length -Or $FfmpegDate -gt $dst.LastWriteTime -Or $_.LastWriteTime -gt $dst.LastWriteTime) {
+                if ($null -eq $dst -Or -Not $dst.Length -Or $FfmpegDate -gt $dst.LastWriteTime -Or $src_LastWriteTime -gt $dst.LastWriteTime) {
                     while ((Get-Job -State "Running").count -ge $FfmpegJobs) {
                         Start-Sleep -Seconds 0.5
                     }

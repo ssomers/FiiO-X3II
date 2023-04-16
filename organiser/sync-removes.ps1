@@ -15,6 +15,7 @@ function Get-Path-Suffix {
 }
 
 enum Treatment {
+    unknown
     ignore
     cover
     copy
@@ -44,7 +45,7 @@ function Get-Treatment {
         "*.ac3" { "convert" }
         "*.flac" { "convert" }
         "*.webm" { "convert" }
-        default { "ignore"; Write-Warning "Unknown $(Join-Path $src_folder $_)" }
+        default { "unknown" }
     }
     $treatment
 }
@@ -82,7 +83,13 @@ ForEach-Object {
             "convert" { $src_basename + ".m4a" -Replace ".hdcd.", "." }
         }
         switch ($treatment) {
-            "ignore" { break }
+            "unknown" {
+                Write-Warning "Unknown $src_path"
+                break
+            }
+            "ignore" {
+                break
+            }
             { $true } {
                 if ($cuts -And $cuts.Contains($src_name)) {
                     $cuts = $cuts | Where-Object { $_ -ne $src_name }
