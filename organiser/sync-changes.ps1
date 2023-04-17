@@ -74,7 +74,7 @@ function Get-FileID {
     (fsutil file queryFileID $LiteralPath) -Split " " |  Select-Object -Last 1
 }
 
-# Given an absolute path and a FullName found under it, return the diverging bit.
+# Given an absolute path and a FullName found under it, return the diverging part.
 function Get-Path-Suffix {
     param (
         [string] $TopPath,
@@ -92,6 +92,11 @@ enum Treatment {
     cover
     copy
     convert
+}
+
+enum Covet {
+    drop
+    hdcd
 }
 
 function Get-Treatment {
@@ -125,6 +130,7 @@ function Get-Treatment {
 Write-Host "`n`n`n`n`n"
 
 [string]$src_top = Resolve-Path -LiteralPath $FolderSrc
+[string]$dst_top = Resolve-Path -LiteralPath $FolderDst
 
 Get-ChildItem $FolderSrc -Directory |
 Get-ChildItem -Directory |
@@ -138,10 +144,15 @@ ForEach-Object {
     $suffix = Get-Path-Suffix $src_top $_.FullName
     $src_folder = $FolderSrc + $suffix
     $dst_folder = $FolderDst + $suffix
+    $dst_folder_abs = $dst_top + $suffix
 
-    $cut_path = Join-Path $src_folder "cut.txt"
-    $cuts = [string[]]@()
-    $cuts += Get-Content -LiteralPath $cut_path -Encoding UTF8 -ErrorAction Ignore
+    $covet_path = Join-Path $src_folder "covet.txt"
+    $covets = New-Object "System.Collections.Generic.Dictionary[string,Covet]"
+    Get-Content -LiteralPath $covet_path -Encoding UTF8 -ErrorAction Ignore |
+    ForEach-Object {
+        $c, $name = $_ -split " ", 2
+        $covets[$name] = $c
+    }
 
     $src_count = 0
     $dst_count = 0
@@ -153,12 +164,6 @@ ForEach-Object {
         $src_basename = $_.BaseName
         $src_LastWriteTime = $_.LastWriteTime
         $treatment = Get-Treatment $src_name
-        $is_hdcd = $src_name -contains ".hdcd."
-        $dst_name = switch ($treatment) {
-            "cover" { $ImageName }
-            "copy" { $src_name }
-            "convert" { $src_basename + ".m4a" -Replace ".hdcd.", "." }
-        }
         switch ($treatment) {
             "unknown" {
                 Write-Warning "Unknown $src_path"
@@ -168,24 +173,31 @@ ForEach-Object {
                 break
             }
             { $true } {
-                if ($cuts -And $cuts.Contains($src_name)) {
-                    $cuts = $cuts | Where-Object { $_ -ne $src_name }
+                $covet = $covets[$src_name]
+                $covets.Remove($src_name) | Out-Null
+                if ($covet -eq "drop") {
                     break
                 }
+
                 ++$src_count
+                $dst_name = switch ($treatment) {
+                    "cover" { $ImageName }
+                    "copy" { $src_name }
+                    "convert" { $src_basename + ".m4a" }
+                }
+                # Must use absolute path because Convert-Cover somehow gets a different working
+                # directory (and Start-Process without -WorkingDirectory too).
+                $dst_path = Join-Path $dst_folder_abs $dst_name
                 if (-Not (Test-Path -LiteralPath $dst_folder)) {
                     Write-Host "Creating $dst_folder"
                     New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
                 }
-                $dst_folder = Resolve-Path -LiteralPath $dst_folder
-                $dst_path = Join-Path $dst_folder $dst_name
             }
             "cover" {
                 Convert-Cover $src_path $dst_path
             }
             "copy" {
                 ++$dst_count
-                $dst_path = Join-Path $dst_folder $src_name
                 if (-Not (Test-Path -LiteralPath $dst_path)) {
                     Write-Host "Linking $dst_path"
                     New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
@@ -196,10 +208,10 @@ ForEach-Object {
             }
             "convert" {
                 ++$dst_count
-                $dst_path = Join-Path $dst_folder $dst_name
-                $filters = if ($is_hdcd) {
-                    { @("hdcd=disable_autoconvert=0") }
-                    { @("aformat=sample_rates=48000|44100|32000|24000|22050|16000|12000|11025|8000|7350") }
+                $filters = [string[]] @()
+                $filters += switch ($covet) {
+                    "hdcd" { @("hdcd=disable_autoconvert=0") }
+                    default { @("aformat=sample_rates=48000|44100|32000|24000|22050|16000|12000|11025|8000|7350") }
                 }
                 $filters += @("volume=replaygain=album")
                 $ffmpeg_arglist = @("-loglevel", "warning")
@@ -233,8 +245,8 @@ ForEach-Object {
         }
         Get-Job | Receive-Job | Write-Error
     }
-    ForEach ($n in $cuts) {
-        Write-Warning "${cut_path}: unused item ""$n"""
+    ForEach ($p in $covets.GetEnumerator()) {
+        Write-Warning "${covet_path}: unused item ""$($p.Key)"""
     }
     if ($src_count -And -Not $dst_count) {
         Write-Warning "Unused folder $src_folder"
