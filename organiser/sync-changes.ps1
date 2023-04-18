@@ -97,6 +97,10 @@ enum Treatment {
 enum Covet {
     drop
     hdcd
+    xf50
+    mono
+    left
+    rght
 }
 
 function Get-Treatment {
@@ -148,108 +152,126 @@ ForEach-Object {
 
     $covet_path = Join-Path $src_folder "covet.txt"
     $covets = New-Object "System.Collections.Generic.Dictionary[string,Covet]"
+    $covets_ok = $true
     Get-Content -LiteralPath $covet_path -Encoding UTF8 -ErrorAction Ignore |
     ForEach-Object {
-        $c, $name = $_ -split " ", 2
-        $covets[$name] = $c
-    }
-
-    $src_count = 0
-    $dst_count = 0
-
-    $_.EnumerateFiles() |
-    ForEach-Object {
-        $src_path = $_.FullName
-        $src_name = $_.Name
-        $src_basename = $_.BaseName
-        $src_LastWriteTime = $_.LastWriteTime
-        $treatment = Get-Treatment $src_name
-        switch ($treatment) {
-            "unknown" {
-                Write-Warning "Unknown $src_path"
-                break
-            }
-            "ignore" {
-                break
-            }
-            { $true } {
-                $covet = $covets[$src_name]
-                $covets.Remove($src_name) | Out-Null
-                if ($covet -eq "drop") {
-                    break
-                }
-
-                ++$src_count
-                $dst_name = switch ($treatment) {
-                    "cover" { $ImageName }
-                    "copy" { $src_name }
-                    "convert" { $src_basename + ".m4a" }
-                }
-                # Must use absolute path because Convert-Cover somehow gets a different working
-                # directory (and Start-Process without -WorkingDirectory too).
-                $dst_path = Join-Path $dst_folder_abs $dst_name
-                if (-Not (Test-Path -LiteralPath $dst_folder)) {
-                    Write-Host "Creating $dst_folder"
-                    New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
-                }
-            }
-            "cover" {
-                Convert-Cover $src_path $dst_path
-            }
-            "copy" {
-                ++$dst_count
-                if (-Not (Test-Path -LiteralPath $dst_path)) {
-                    Write-Host "Linking $dst_path"
-                    New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
-                }
-                elseif ((Get-FileID $src_path) -ne (Get-FileID $dst_path)) {
-                    Write-Warning "Unhinged $dst_path"
-                }
-            }
-            "convert" {
-                ++$dst_count
-                $filters = [string[]] @()
-                $filters += switch ($covet) {
-                    "hdcd" { @("hdcd=disable_autoconvert=0") }
-                    default { @("aformat=sample_rates=48000|44100|32000|24000|22050|16000|12000|11025|8000|7350") }
-                }
-                $filters += @("volume=replaygain=album")
-                $ffmpeg_arglist = @("-loglevel", "warning")
-                $ffmpeg_arglist += @("-i", "`"$src_path`"")
-                $ffmpeg_arglist += @("-filter:a", ($filters -join ","))
-                $ffmpeg_arglist += @("-q:a", $FfmpegQuality)
-                $ffmpeg_arglist += @("`"$dst_path`"", "-y")
-
-                $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
-                if ($null -eq $dst -Or -Not $dst.Length -Or $FfmpegDate -gt $dst.LastWriteTime -Or $src_LastWriteTime -gt $dst.LastWriteTime) {
-                    while ((Get-Job -State "Running").count -ge $FfmpegJobs) {
-                        Start-Sleep -Seconds 0.5
-                    }
-                    Write-Host "Writing $dst_path"
-                    Start-Job -ScriptBlock {
-                        # Call operator & avoids the insane quoting needed for file names
-                        # (https://github.com/PowerShell/PowerShell/issues/5576) but doesn't allow
-                        # setting priority and doesn't let the process complete on Ctrl-C.
-                        # We can't use -RedirectStandardError, it blocks the process from the start.
-                        $p = Start-Process -WindowStyle "Hidden" -PassThru "ffmpeg.exe" -ArgumentList $using:ffmpeg_arglist
-                        $p.PriorityClass = "BelowNormal"
-                        $p.WaitForExit()
-                        $dst = Get-Item -LiteralPath $using:dst_path -ErrorAction:SilentlyContinue
-                        if ($null -eq $dst -Or -Not $dst.Length) {
-                            Remove-Item -LiteralPath $using:dst_path
-                            "Failed to create $using:dst_path {ffmpeg $using:ffmpeg_arglist}"
-                        }
-                    } | Out-Null
-                }
-            }
+        $err = try { [Covet] $typed_covet, [String] $name = $_ -split " ", 2 } catch { $_ }
+        if (-Not $err -And -Not $name) {
+            $err = "invalid line ""$_"""
         }
-        Get-Job | Receive-Job | Write-Error
+        if (-Not $err -And $covets.ContainsKey($name)) {
+            $err = """$name"" multiply defined"
+        }
+        if ($err) {
+            Write-Warning "${covet_path}: $err"
+            $covets_ok = $false
+        }
+        else {
+            $covets[$name] = $typed_covet
+        }
     }
-    ForEach ($p in $covets.GetEnumerator()) {
-        Write-Warning "${covet_path}: unused item ""$($p.Key)"""
-    }
-    if ($src_count -And -Not $dst_count) {
-        Write-Warning "Unused folder $src_folder"
+    if ($covets_ok) {
+        $src_count = 0
+        $dst_count = 0
+
+        $_.EnumerateFiles() |
+        ForEach-Object {
+            $src_path = $_.FullName
+            $src_name = $_.Name
+            $src_basename = $_.BaseName
+            $src_LastWriteTime = $_.LastWriteTime
+            $treatment = Get-Treatment $src_name
+            switch ($treatment) {
+                "unknown" { Write-Warning "Unknown $src_path" }
+                "ignore" {}
+                default {
+                    $covet = $covets[$src_name]
+                    if ($covets.Remove($src_name)) {
+                        if ($covet -eq "drop") {
+                            break
+                        }
+                        $treatment = "convert"
+                    }
+
+                    ++$src_count
+                    $dst_name = switch ($treatment) {
+                        "cover" { $ImageName }
+                        "copy" { $src_name }
+                        "convert" { $src_basename + ".m4a" }
+                    }
+                    $dst_path = Join-Path $dst_folder $dst_name
+                    # Must use absolute path because Convert-Cover somehow gets a different working
+                    # directory (and Start-Process without -WorkingDirectory too).
+                    $dst_path_abs = Join-Path $dst_folder_abs $dst_name
+                    if (-Not (Test-Path -LiteralPath $dst_folder)) {
+                        Write-Host "Creating $dst_folder"
+                        New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
+                    }
+                    switch ($treatment) {
+                        "cover" {
+                            Convert-Cover $src_path $dst_path_abs
+                        }
+                        "copy" {
+                            ++$dst_count
+                            if (-Not (Test-Path -LiteralPath $dst_path)) {
+                                Write-Host "Linking $dst_path"
+                                New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
+                            }
+                            elseif ((Get-FileID $src_path) -ne (Get-FileID $dst_path)) {
+                                Write-Warning "Unhinged $dst_path"
+                            }
+                        }
+                        "convert" {
+                            ++$dst_count
+                            [string[]] $filters = @()
+                            [string[]] $ffmpeg_arglist = @("-loglevel", "warning")
+                            $ffmpeg_arglist += @("-i", "`"$src_path`"")
+                            switch ($covet) {
+                                "hdcd" { $filters += @("hdcd=disable_autoconvert=0") }
+                                "xf50" { $filters += @("crossfeed=level_in=1:strength=.5") }
+                                "left" { $filters += @("pan=mono|c0=FL") }
+                                "rght" { $filters += @("pan=mono|c0=FR") }
+                                "mono" { $ffmpeg_arglist += @("-ac", 1) }
+                            }
+                            $filters += @("aformat=sample_rates=48000|44100|32000|24000|22050|16000|12000|11025|8000|7350")
+                            $filters += @("volume=replaygain=album")
+                            $ffmpeg_arglist += @("-filter:a", ($filters -join ","))
+                            $ffmpeg_arglist += @("-q:a", $FfmpegQuality)
+                            $ffmpeg_arglist += @("`"$dst_path_abs`"", "-y")
+
+                            $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
+                            if ($null -eq $dst -Or -Not $dst.Length -Or $FfmpegDate -gt $dst.LastWriteTime -Or $src_LastWriteTime -gt $dst.LastWriteTime) {
+                                while ((Get-Job -State "Running").count -ge $FfmpegJobs) {
+                                    Start-Sleep -Seconds 0.5
+                                }
+                                Write-Host "Writing $dst_path"
+                                Start-Job -ScriptBlock {
+                                    # Call operator & avoids the insane quoting needed for file names
+                                    # (https://github.com/PowerShell/PowerShell/issues/5576) but doesn't allow
+                                    # setting priority and doesn't let the process complete on Ctrl-C.
+                                    # We can't use -RedirectStandardError, it blocks the process from the start.
+                                    $p = Start-Process -WindowStyle "Hidden" -PassThru "ffmpeg.exe" -ArgumentList $using:ffmpeg_arglist
+                                    $p.PriorityClass = "BelowNormal"
+                                    $p.WaitForExit()
+                                    $dst = Get-Item -LiteralPath $using:dst_path_abs -ErrorAction:SilentlyContinue
+                                    if ($null -eq $dst -Or -Not $dst.Length) {
+                                        Remove-Item -LiteralPath $using:dst_path_abs
+                                        "Failed to create $using:dst_path_abs { ffmpeg $using:ffmpeg_arglist }"
+                                    }
+                                } | Out-Null
+                            }
+                        }
+                    }
+                }
+            }
+            Get-Job | Receive-Job | Write-Error
+        }
+        ForEach ($p in $covets.GetEnumerator()) {
+            Write-Warning "${covet_path}: unused item ""$($p.Key)"""
+        }
+        if ($src_count -And -Not $dst_count) {
+            Write-Warning "Unused folder $src_folder"
+        }
     }
 }
 
