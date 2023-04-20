@@ -38,9 +38,10 @@ By the way, in 2.0, these folders and files are not used at all by the firmware'
 
 ## Content Organizer
 
-These Powershell scripts set up and maintain parallel directory trees with contents extracted from a source tree and prepared for the player, on a standard NTFS partition. It converts FLAC files to M4A, hardlinks already compressed files, converts cover art, or leaves out files listed in an optional file cut.txt.
+These Powershell scripts set up and maintain a parallel directory tree `X3` with contents extracted from a source tree `src` and prepared for the player, on a standard NTFS partition. It converts cover art to fit the middle of the screen, converts FLAC files to top quality M4A, hardlinks already compressed files, optionally mixes down to mono, optionally adds crossfeed, or leaves out files, controlled in an optional file covet.txt.
 
-`sync-changes.ps1` initiates and incrementally updates whenever things change in the source tree. You then sync the desintation tree with the player. If you delete a track on the player, and sync back with the destintation folder, `sync-removes.ps1` records the removal in a cut.text file.
+`sync-changes.ps1` initiates and incrementally updates whenever things are added to the source tree. You then sync the desintation tree with the player. If you delete a track on the player, and sync back with the destintation folder, `sync-removes.ps1` records the removal in a covet.txt file.
+If you delete or rename a file in the soruce, or mark to exclude it in a covet.txt file, `sync-drops.ps1` cleans up the `X3` directory.
 
 ## Shaping album art: fiio_cover_to_folder
 
