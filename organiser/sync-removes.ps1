@@ -113,6 +113,7 @@ function Get-DefaultTreatment {
 Write-Host "`n`n`n`n`n"
 
 [string]$src_top = Resolve-Path -LiteralPath $FolderSrc
+[string]$dst_top = Resolve-Path -LiteralPath $FolderDst
 
 Get-ChildItem $FolderSrc -Directory |
 ForEach-Object {
@@ -153,7 +154,7 @@ ForEach-Object {
                     $dst_path = Join-Path $dst_folder $dst_name
                     if (-Not (Test-Path -LiteralPath $dst_path)) {
                         Write-Host "${covet_path}: adding ""$src_name"""
-                        $covet[$src_name] = "ignore"
+                        $covets[$src_name] = "ignore"
                         ++$covet_changes
                     }
                 }
@@ -172,6 +173,46 @@ ForEach-Object {
             }
             else {
                 Write-Output $covet_path
+            }
+        }
+    }
+} |
+Remove-Item -Confirm
+
+Get-ChildItem $FolderDst -Directory |
+ForEach-Object {
+    $dst_folder = $FolderDst + (Get-Path-Suffix $dst_top $_.FullName)
+    Write-Progress "Looking for spurious files in $dst_folder"
+    Write-Output $_
+} |
+Get-ChildItem -Directory -Recurse |
+ForEach-Object {
+    $suffix = Get-Path-Suffix $dst_top $_.FullName
+    $src_folder = $FolderSrc + $suffix
+
+    if (-Not (Test-Path -LiteralPath $src_folder)) {
+        Write-Output $_
+    }
+    else {
+        $covet_path = Join-Path $src_folder "covet.txt"
+        $covets = Get-Covets $covet_path
+
+        $_.EnumerateFiles() |
+        ForEach-Object {
+            [Boolean[]] $justifications = if ($_.Name -eq $ImageName) {
+                foreach ($n in @("cover.jpg", "cover.jpeg", "cover.png", "cover.webm")) {
+                    Join-Path $src_folder $n | Test-Path
+                }
+            }
+            else {
+                foreach ($n in @($_.Name, ($_.BaseName + ".ac3"),
+                                          ($_.BaseName + ".flac"),
+                                          ($_.BaseName + ".webm"))) {
+                    (Join-Path $src_folder $n | Test-Path) -And ($covets[$n] -ne "ignore")
+                }
+            }
+            if ($justifications -NotContains $true) {
+                Write-Output $_.FullName
             }
         }
     }
