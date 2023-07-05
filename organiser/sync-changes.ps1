@@ -252,7 +252,14 @@ ForEach-Object {
                                 Write-Host "Linking $dst_path"
                                 New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
                             }
-                            elseif ((Get-FileID $src_path) -ne (Get-FileID $dst_path)) {
+                            elseif ((Get-FileID $src_path) -eq (Get-FileID $dst_path)) {
+                                #Write-Host "Keeping $dst_path"
+                            }
+                            elseif ((Get-FileHash $src_path).Hash -eq (Get-FileHash $dst_path).Hash) {
+                                Write-Host "Re-linking $dst_path"
+                                New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) -Force | Out-Null
+                            }
+                            else {
                                 Write-Warning "Unhinged $dst_path"
                             }
                         }
