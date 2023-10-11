@@ -1,62 +1,91 @@
-Set-Variable FolderSrc -Value "src" -Option Constant
-Set-Variable FolderDst -Value "X3" -Option Constant
-Set-Variable ImageName -Value "folder.jpg" -Option Constant
-Set-Variable ImageQuality -Value 95 -Option Constant
-Set-Variable ImageWidth -Value 320 -Option Constant
-Set-Variable ImageHeight -Value 240 -Option Constant
-Set-Variable InsetHeight -Value 208 -Option Constant
-Set-Variable FfmpegQuality -Value 7 -Option Constant
-$FfmpegJobs = (Get-WmiObject -Class Win32_processor | ForEach-Object NumberOfCores) - 1
+$ErrorActionPreference = "Inquire"
+
+New-Variable -Option Constant FolderSrc -Value "src"
+New-Variable -Option Constant FolderDst -Value "X3"
+New-Variable -Option Constant AbsFolderSrc -Value (Resolve-Path -LiteralPath $FolderSrc).Path
+New-Variable -Option Constant AbsFolderDst -Value (Resolve-Path -LiteralPath $FolderDst).Path
+New-Variable -Option Constant ImageName -Value "folder.jpg"
+New-Variable -Option Constant ImageQuality -Value 95
+New-Variable -Option Constant ImageWidth -Value 320
+New-Variable -Option Constant ImageHeight -Value 240
+New-Variable -Option Constant InsetHeight -Value 208
+New-Variable -Option Constant FfmpegQuality -Value 7
+New-Variable -Option Constant FfmpegJobs -Value ([Environment]::ProcessorCount - 1)
+New-Variable -Option Constant FfmpegDate_anyhow -Value ([datetime]"2023-03-03")
+New-Variable -Option Constant FfmpegDate_by_conversion -Value @{
+    [Conversion] "cnv_bass"  = [datetime]"2023-10-08"
+    [Conversion] "cnv_hdcd"  = [datetime]"2023-03-03"
+    [Conversion] "cnv_xfeed" = [datetime]"2023-04-20"
+    [Conversion] "cnv_mono"  = [datetime]"2023-03-03"
+    [Conversion] "cnv_left"  = [datetime]"2023-03-03"
+    [Conversion] "cnv_right" = [datetime]"2023-03-03"
+}
+New-Variable -Option Constant ignore_symbol -Value ([char]"-")
+New-Variable -Option Constant conversion_by_symbol -Value @{
+    [char]"B" = [Conversion] "cnv_bass"
+    [char]"H" = [Conversion] "cnv_hdcd"
+    [char]"X" = [Conversion] "cnv_xfeed"
+    [char]"|" = [Conversion] "cnv_mono"
+    [char]"<" = [Conversion] "cnv_left"
+    [char]">" = [Conversion] "cnv_right"
+}
+
+
 enum Treatment {
     unknown
     ignore
     cover
     copy
-    convert_usual
-    convert_hdcd
-    convert_xfeed
-    convert_mono
-    convert_left
-    convert_right
+    convert
 }
 
-$FfmpegDate_by_conversion = @{
-    [Treatment] "convert_usual" = [datetime]"2023-03-03"
-    [Treatment] "convert_hdcd"  = [datetime]"2023-03-03"
-    [Treatment] "convert_xfeed" = [datetime]"2023-04-20"
-    [Treatment] "convert_mono"  = [datetime]"2023-03-03"
-    [Treatment] "convert_left"  = [datetime]"2023-03-03"
-    [Treatment] "convert_right" = [datetime]"2023-03-03"
+enum Conversion {
+    cnv_hdcd
+    cnv_bass
+    cnv_xfeed
+    cnv_mono
+    cnv_left
+    cnv_right
 }
-$special_treatment_by_symbol = @{
-    "-" = [Treatment] "ignore"
-    "H" = [Treatment] "convert_hdcd"
-    "X" = [Treatment] "convert_xfeed"
-    "|" = [Treatment] "convert_mono"
-    "<" = [Treatment] "convert_left"
-    ">" = [Treatment] "convert_right"
+
+class Covet {
+    [Treatment]$treatment
+    [Collections.Generic.List[Conversion]]$conversions
+    Covet([Treatment]$treatment) {
+        $this.treatment = $treatment
+        $this.conversions = [Collections.Generic.List[Conversion]]::new(1)
+    }
 }
 
 function Get-Covets {
     param (
         [string] $InPath
     )
-    $covets = New-Object "Collections.Generic.Dictionary[string,Treatment]"
+    $covets = [Collections.Generic.Dictionary[string, Covet]]::new(16)
     Get-Content -LiteralPath $InPath -Encoding UTF8 -ErrorAction Ignore |
     ForEach-Object {
-        $symbol, $name = $_ -split " ", 2
+        $symbols, $name = $_ -split " ", 2
         if (-Not $name) {
             Write-Warning "${InPath}: invalid line ""$_"""
             return $null
         }
-        elseif ($covets.ContainsKey($name)) {
+        if ($covets.ContainsKey($name)) {
             Write-Warning "${InPath}: multiply defined ""$name"""
             return $null
         }
-        $covet = $special_treatment_by_symbol[$symbol]
-        if ($null -eq $covet) {
-            Write-Warning "${InPath}: invalid symbol ""$symbol"""
-            return $null
+        if ($symbols -eq $ignore_symbol) {
+            $covet = [Covet]::new("ignore")
+        }
+        else {
+            $covet = [Covet]::new("convert")
+            foreach ($s in $symbols.GetEnumerator()) {
+                $conversion = $conversion_by_symbol[$s]
+                if ($null -eq $conversion) {
+                    Write-Error "${InPath}: invalid symbol ""$s"" for name ""$name"""
+                    return $null
+                }
+                $covet.conversions.Add($conversion)
+            }
         }
         $covets[$name] = $covet
     }
@@ -66,13 +95,29 @@ function Get-Covets {
 function Set-Covets {
     # Outputs filename to be fed to Remove-Item
     param (
-        [Collections.Generic.Dictionary[string, Treatment]] $covets,
+        [Collections.Generic.Dictionary[string, Covet]] $covets,
         [string] $OutPath
     )
     $covets.GetEnumerator() | ForEach-Object {
-        $name, $treatment = $_.Key, $_.Value
-        $symbol = $symbol_by_special_treatment[$treatment]
-        Write-Output "$symbol $name"
+        $name, $covet = $_.Key, $_.Value
+        $symbols = ""
+        switch ($covet.treatment) {
+            "ignore" { 
+                $symbols += $ignore_symbol
+            }
+            "convert" { 
+                foreach ($p in $conversion_by_symbol.GetEnumerator()) {
+                    ([string] $symbol, [Conversion] $c) = ($p.Key, $p.Value)
+                    if ($covet.conversions -contains $c) {
+                        $symbols += $symbol
+                    }
+                }
+            }
+        }
+        if ($symbols -eq "") {
+            Write-Error "${InPath}: unknown treatment for name ""$name"""
+        }
+        Write-Output "$symbols $name"
     } | Set-Content -LiteralPath $OutPath -Encoding UTF8
 }
 
@@ -103,35 +148,53 @@ function Convert-Cover {
     $InsetX = ($ImageWidth - $InsetWidth) / 2
     $InsetY = ($ImageHeight - $InsetHeight) / 2
 
-    $DstImage = New-Object -TypeName Drawing.Bitmap -ArgumentList $ImageWidth, $ImageHeight
-    $Inset = New-Object -TypeName Drawing.Rectangle -ArgumentList $InsetX, $InsetY, $InsetWidth, $InsetHeight
+    $DstImage = [Drawing.Bitmap]::new($ImageWidth, $ImageHeight)
+    $Inset = [Drawing.Rectangle]::new($InsetX, $InsetY, $InsetWidth, $InsetHeight)
     [Drawing.Graphics]::FromImage($DstImage).DrawImage($SrcImage, $Inset)
     $srcImage.Dispose()
 
-    $DstStream = New-Object -TypeName System.IO.MemoryStream -ArgumentList 48e3
-    $jpegParams = New-Object -TypeName Drawing.Imaging.EncoderParameters -ArgumentList 1
-    $jpegParams.Param[0] = New-Object -TypeName Drawing.Imaging.EncoderParameter -ArgumentList ([Drawing.Imaging.Encoder]::Quality, $ImageQuality)
+    $DstStream = [IO.MemoryStream]::new(48e3)
+    $jpegParams = [Drawing.Imaging.EncoderParameters]::new(1)
+    $jpegParams.Param[0] = [Drawing.Imaging.EncoderParameter]::new([Drawing.Imaging.Encoder]::Quality, $ImageQuality)
     $jpegCodec = [Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object -Property FormatDescription -EQ "JPEG"
     $DstImage.Save($DstStream, $jpegCodec, $jpegParams)
     $DstStream.Close()
     $NewDstBytes = $DstStream.ToArray()
 
     try {
-        $OldDstBytes = [System.IO.File]::ReadAllBytes($DstPath)
+        $OldDstBytes = [IO.File]::ReadAllBytes($DstPath)
         $change = "Updating"
     }
-    catch [System.IO.FileNotFoundException] {
+    catch [IO.FileNotFoundException] {
         $OldDstBytes = [byte[]] @()
         $change = "Creating"
     }
     if ($OldDstBytes.Length -ne $NewDstBytes.Length -Or
         [msvcrt]::memcmp($OldDstBytes, $NewDstBytes, $NewDstBytes.Length) -ne 0) {
         Write-Host "$change $DstPath"
-        [System.IO.File]::WriteAllBytes($DstPath, $NewDstBytes)
+        [IO.File]::WriteAllBytes($DstPath, $NewDstBytes)
     }
     else {
         #Write-Host "Checked $DstPath"
     }
+}
+
+function Compare-Dates {
+    param (
+        [DateTime] $LastWriteTime,
+        [Conversion[]] $conversions
+    )
+    if ($FfmpegDate_anyhow -gt $LastWriteTime) {
+        Write-Host "time to update"
+        return $true
+    }
+    foreach ($c in $conversions.GetEnumerator()) {
+        if ($FfmpegDate_by_conversion[$c] -gt $LastWriteTime) {
+            Write-Host "time to reconvert"
+            return $true
+        }
+    }
+    $false
 }
 
 function Get-FileID {
@@ -144,23 +207,17 @@ function Get-FileID {
 # Given an absolute path and a FullName found under it, return the diverging part.
 function Get-Path-Suffix {
     param (
-        [string] $TopPath,
+        [string] $AbsPath,
         [string] $SubPath
     )
-    if (-Not $SubPath.StartsWith($TopPath)) {
-        Throw "Quirky path $SubPath"
+    if (-Not $SubPath.StartsWith($AbsPath)) {
+        Throw "Quirky path $SubPath does not start with $AbsPath"
     }
-    $SubPath.Substring($TopPath.Length)
-}
-
-$symbol_by_special_treatment = @{}
-foreach ($p in $special_treatment_by_symbol.GetEnumerator()) {
-    ([string] $s, [Treatment] $t) = ($p.Key, $p.Value)
-    $symbol_by_special_treatment[$t] = $s
+    $SubPath.Substring($AbsPath.Length)
 }
 
 
-function Get-DefaultTreatment {
+function Get-Default-Treatment {
     param (
         [string] $Filename
     )
@@ -180,42 +237,33 @@ function Get-DefaultTreatment {
         "*.mp3" { "copy" }
         "*.ogg" { "copy" }
         "*.wma" { "copy" }
-        "*.ac3" { "convert_usual" }
-        "*.flac" { "convert_usual" }
-        "*.webm" { "convert_usual" }
+        "*.ac3" { "convert" }
+        "*.flac" { "convert" }
+        "*.webm" { "convert" }
         default { "unknown" }
     }
     $treatment
 }
 
-Write-Host "`n`n`n`n`n"
+function Update-Folder {
+    param (
+        [IO.DirectoryInfo] $diritem
+    )
 
-[string]$src_top = Resolve-Path -LiteralPath $FolderSrc
-[string]$dst_top = Resolve-Path -LiteralPath $FolderDst
-
-Get-ChildItem $FolderSrc -Directory |
-Get-ChildItem -Directory |
-ForEach-Object {
-    $src_folder = $FolderSrc + (Get-Path-Suffix $src_top $_.FullName)
-    Write-Progress "Looking in $src_folder"
-    Write-Output $_
-} |
-Get-ChildItem -Directory -Recurse |
-ForEach-Object {
-    $suffix = Get-Path-Suffix $src_top $_.FullName
+    $suffix = Get-Path-Suffix $AbsFolderSrc $diritem.FullName
     $src_folder = $FolderSrc + $suffix
     $dst_folder = $FolderDst + $suffix
-    $dst_folder_abs = $dst_top + $suffix
+    $dst_folder_abs = $AbsFolderDst + $suffix
 
     $covet_path = Join-Path $src_folder "covet.txt"
     $covets = Get-Covets $covet_path
     if ($null -ne $covets) {
-        $names_unused = New-Object Collections.Generic.List[string]
+        $names_unused = [Collections.Generic.List[string]]::new()
         $covets.Keys | ForEach-Object { $names_unused.Add($_) }
         $src_count = 0
         $dst_count = 0
 
-        $_.EnumerateFiles() |
+        $diritem.EnumerateFiles() |
         ForEach-Object {
             $src_path = $_.FullName
             $src_name = $_.Name
@@ -223,16 +271,18 @@ ForEach-Object {
             $src_LastWriteTime = $_.LastWriteTime
             [void] $names_unused.Remove($src_name)
             $covet = $covets[$src_name]
-            [Treatment] $treatment = if ($null -ne $covet) { $covet } else { Get-DefaultTreatment $src_name }
-            switch ($treatment) {
+            if ($null -eq $covet) {
+                $covet = [Covet]::new((Get-Default-Treatment $src_name))
+            }
+            switch ($covet.treatment) {
                 "unknown" { Write-Warning "Unknown $src_path" }
                 "ignore" {}
                 default {
                     ++$src_count
-                    $dst_name = switch ($treatment) {
+                    $dst_name = switch ($covet.treatment) {
                         "cover" { $ImageName }
                         "copy" { $src_name }
-                        default { $src_basename + ".m4a" }
+                        "convert" { $src_basename + ".m4a" }
                     }
                     $dst_path = Join-Path $dst_folder $dst_name
                     # Must use absolute path because Convert-Cover somehow gets a different working
@@ -242,7 +292,7 @@ ForEach-Object {
                         Write-Host "Creating $dst_folder"
                         New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
                     }
-                    switch ($treatment) {
+                    switch ($covet.treatment) {
                         "cover" {
                             Convert-Cover $src_path $dst_path_abs
                         }
@@ -263,24 +313,27 @@ ForEach-Object {
                                 Write-Warning "Unhinged $dst_path"
                             }
                         }
-                        default {
+                        "convert" {
                             ++$dst_count
                             $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
-                            if ($null -eq $dst -Or -Not $dst.Length -Or $FfmpegDate_by_conversion[$treatment] -gt $dst.LastWriteTime -Or $src_LastWriteTime -gt $dst.LastWriteTime) {
-                                $filters = New-Object Collections.Generic.List[string]
-                                $ffmpeg_arglist = New-Object Collections.Generic.List[string]
+                            if ($null -eq $dst -Or -Not $dst.Length -Or (Compare-Dates $dst.LastWriteTime $covet.conversions) -Or $src_LastWriteTime -gt $dst.LastWriteTime) {
+                                $ffmpeg_arglist = [Collections.Generic.List[string]]::new(8);
                                 $ffmpeg_arglist += @("-loglevel", "warning")
                                 $ffmpeg_arglist += @("-i", "`"$src_path`"")
-                                switch ($treatment) {
-                                    "convert_hdcd" { $filters += @("hdcd=disable_autoconvert=0") }
-                                    "convert_xfeed" { $filters += @("crossfeed=level_in=1:strength=.5") }
-                                    "convert_left" { $filters += @("pan=mono|c0=FL") }
-                                    "convert_rght" { $filters += @("pan=mono|c0=FR") }
-                                    "convert_mono" { $ffmpeg_arglist += @("-ac", 1) }
+                                $filters = [Collections.Generic.List[string]]::new(8);
+                                foreach ($c in $covet.conversions.GetEnumerator()) {
+                                    switch ($c) {
+                                        "cnv_bass" { $filters += @("bass=gain=4:frequency=200") }
+                                        "cnv_hdcd" { $filters += @("hdcd=disable_autoconvert=0") }
+                                        "cnv_xfeed" { $filters += @("crossfeed=level_in=1:strength=.5") }
+                                        "cnv_left" { $filters += @("pan=mono| c0=FL") }
+                                        "cnv_rght" { $filters += @("pan=mono| c0=FR") }
+                                        "cnv_mono" { $ffmpeg_arglist += @("-ac", 1) }
+                                    }
                                 }
                                 $filters += @("aformat=sample_rates=48000|44100|32000|24000|22050|16000|12000|11025|8000|7350")
                                 $filters += @("volume=replaygain=album")
-                                $ffmpeg_arglist += @("-filter:a", ($filters -join ","))
+                                $ffmpeg_arglist += @("-filter:a", "`"$($filters -join ",")`"")
                                 $ffmpeg_arglist += @("-q:a", $FfmpegQuality)
                                 $ffmpeg_arglist += @("`"$dst_path_abs`"", "-y")
 
@@ -318,5 +371,15 @@ ForEach-Object {
     }
 }
 
+# Full recursion but only reporting progress on the 2nd level
+$diritems = @(Get-ChildItem $FolderSrc -Directory | Get-ChildItem -Directory)
+0..($diritems.Count - 1) | ForEach-Object {
+    $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
+    $dir = $diritems[$_]
+    $src_folder = $FolderSrc + (Get-Path-Suffix $AbsFolderSrc $dir.FullName)
+    Write-Progress -Activity "Looking in folder" -Status $src_folder -PercentComplete $pct
+    Update-Folder $dir
+    $dir | Get-ChildItem -Directory -Recurse | ForEach-Object { Update-Folder $_ }
+}
+
 Get-Job | Wait-Job | Receive-Job | Write-Error
-Read-Host " :: Press Enter to close :"
