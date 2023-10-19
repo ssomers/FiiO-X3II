@@ -15,6 +15,7 @@ New-Variable -Option Constant conversion_by_symbol -Value @{
     [char]">" = [Conversion] "cnv_right"
 }
 
+
 enum Treatment {
     unknown
     ignore
@@ -77,12 +78,11 @@ function Get-Covets {
 }
 
 function Set-Covets {
-    # Outputs filename to be fed to Remove-Item
     param (
         [Collections.Generic.Dictionary[string, Covet]] $covets,
         [string] $OutPath
     )
-    $covets.GetEnumerator() | ForEach-Object {
+    $covets.GetEnumerator() | Sort-Object -Property Key | ForEach-Object {
         $name, $covet = $_.Key, $_.Value
         $symbols = ""
         switch ($covet.treatment) {
@@ -209,6 +209,7 @@ function Update-Folder {
 }
 
 # Full recursion but only reporting progress on the 2nd level
+Write-Progress -Activity "Looking in folder" -Status $FolderSrc -PercentComplete -1
 $diritems = @(Get-ChildItem $FolderSrc -Directory | Get-ChildItem -Directory)
 0..($diritems.Count - 1) | ForEach-Object {
     $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100

@@ -13,7 +13,7 @@ New-Variable -Option Constant FfmpegQuality -Value 7
 New-Variable -Option Constant FfmpegJobs -Value ([Environment]::ProcessorCount - 1)
 New-Variable -Option Constant FfmpegDate_anyhow -Value ([datetime]"2023-03-03")
 New-Variable -Option Constant FfmpegDate_by_conversion -Value @{
-    [Conversion] "cnv_bass"  = [datetime]"2023-10-08"
+    [Conversion] "cnv_bass"  = [datetime]"2023-10-18"
     [Conversion] "cnv_hdcd"  = [datetime]"2023-03-03"
     [Conversion] "cnv_xfeed" = [datetime]"2023-04-20"
     [Conversion] "cnv_mono"  = [datetime]"2023-03-03"
@@ -93,12 +93,11 @@ function Get-Covets {
 }
 
 function Set-Covets {
-    # Outputs filename to be fed to Remove-Item
     param (
         [Collections.Generic.Dictionary[string, Covet]] $covets,
         [string] $OutPath
     )
-    $covets.GetEnumerator() | ForEach-Object {
+    $covets.GetEnumerator() | Sort-Object -Property Key | ForEach-Object {
         $name, $covet = $_.Key, $_.Value
         $symbols = ""
         switch ($covet.treatment) {
@@ -185,12 +184,10 @@ function Compare-Dates {
         [Conversion[]] $conversions
     )
     if ($FfmpegDate_anyhow -gt $LastWriteTime) {
-        Write-Host "time to update"
         return $true
     }
     foreach ($c in $conversions.GetEnumerator()) {
         if ($FfmpegDate_by_conversion[$c] -gt $LastWriteTime) {
-            Write-Host "time to reconvert"
             return $true
         }
     }
@@ -323,7 +320,7 @@ function Update-Folder {
                                 $filters = [Collections.Generic.List[string]]::new(8);
                                 foreach ($c in $covet.conversions.GetEnumerator()) {
                                     switch ($c) {
-                                        "cnv_bass" { $filters += @("bass=gain=4:frequency=200") }
+                                        "cnv_bass" { $filters += @("bass=gain=6") }
                                         "cnv_hdcd" { $filters += @("hdcd=disable_autoconvert=0") }
                                         "cnv_xfeed" { $filters += @("crossfeed=level_in=1:strength=.5") }
                                         "cnv_left" { $filters += @("pan=mono| c0=FL") }
@@ -372,6 +369,7 @@ function Update-Folder {
 }
 
 # Full recursion but only reporting progress on the 2nd level
+Write-Progress -Activity "Looking in folder" -Status $FolderSrc -PercentComplete -1
 $diritems = @(Get-ChildItem $FolderSrc -Directory | Get-ChildItem -Directory)
 0..($diritems.Count - 1) | ForEach-Object {
     $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
