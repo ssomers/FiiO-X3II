@@ -38,7 +38,7 @@ class Covet {
     [Collections.Generic.List[Conversion]]$conversions
     Covet([Treatment]$treatment) {
         $this.treatment = $treatment
-        $this.conversions = [Collections.Generic.List[Conversion]]::new(1)
+        $this.conversions = [Collections.Generic.List[Conversion]]::new()
     }
 }
 
@@ -46,7 +46,7 @@ function Get-Covets {
     param (
         [string] $InPath
     )
-    $covets = [Collections.Generic.Dictionary[string, Covet]]::new(16)
+    $covets = [Collections.Generic.Dictionary[string, Covet]]::new()
     Get-Content -LiteralPath $InPath -Encoding UTF8 -ErrorAction Ignore |
     ForEach-Object {
         $symbols, $name = $_ -split " ", 2
@@ -124,7 +124,6 @@ function Get-Default-Treatment {
     )
 
     [Treatment]$treatment = switch -Wildcard ($Filename) {
-        "*.new.*" { "ignore"; break }
         "*.old.*" { "ignore"; break }
         "*.raw.*" { "ignore"; break }
         "*.iso" { "ignore" }
@@ -169,7 +168,7 @@ function Update-Folder {
             $src_basename = $_.BaseName
             [void] $names_unused.Remove($src_name)
             $covet = $covets[$src_name]
-            if ($null -eq $covet) {
+            if (-not $covet) {
                 $covet = [Covet]::new((Get-Default-Treatment $src_name))
             }
             switch ($covet.treatment) {
@@ -210,7 +209,7 @@ function Update-Folder {
 
 # Full recursion but only reporting progress on the 2nd level
 Write-Progress -Activity "Looking in folder" -Status $FolderSrc -PercentComplete -1
-$diritems = @(Get-ChildItem $FolderSrc -Directory | Get-ChildItem -Directory)
+$diritems = Get-ChildItem $FolderSrc -Directory | Get-ChildItem -Directory
 0..($diritems.Count - 1) | ForEach-Object {
     $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
     $dir = $diritems[$_]
@@ -223,40 +222,39 @@ $diritems = @(Get-ChildItem $FolderSrc -Directory | Get-ChildItem -Directory)
 Get-ChildItem $FolderDst -Directory |
 ForEach-Object {
     $dst_folder = $FolderDst + (Get-Path-Suffix $AbsFolderDst $_.FullName)
-    Write-Progress "Looking for spurious files in $dst_folder"
+    Write-Progress -Activity "Looking for spurious files" -Status $dst_folder -PercentComplete -1
     Write-Output $_
 } |
 Get-ChildItem -Directory -Recurse |
 ForEach-Object {
     $suffix = Get-Path-Suffix $AbsFolderDst $_.FullName
     $src_folder = $FolderSrc + $suffix
-
-    if (-Not (Test-Path -LiteralPath $src_folder)) {
-        Write-Output $_
-    }
-    else {
+    if (Test-Path -LiteralPath $src_folder) {
         $covet_path = Join-Path $src_folder "covet.txt"
         $covets = Get-Covets $covet_path
 
         $_.EnumerateFiles() |
         ForEach-Object {
             [Boolean[]] $justifications = if ($_.Name -eq $ImageName) {
-                foreach ($n in @("cover.jpg", "cover.jpeg", "cover.png", "cover.webm")) {
+                foreach ($n in "cover.jpg", "cover.jpeg", "cover.png", "cover.webm") {
                     Join-Path $src_folder $n | Test-Path
                 }
             }
             else {
-                foreach ($n in @($_.Name,
-                                 ($_.BaseName + ".ac3"),
-                                 ($_.BaseName + ".flac"),
-                                 ($_.BaseName + ".webm"))) {
+                foreach ($n in $_.Name,
+                               ($_.BaseName + ".ac3"),
+                               ($_.BaseName + ".flac"),
+                               ($_.BaseName + ".webm")) {
                     (Join-Path $src_folder $n | Test-Path) -And ($null -eq $covets[$n] -Or $covets[$n].treatment -ne "ignore")
                 }
             }
             if ($justifications -NotContains $true) {
-                Write-Output $_.FullName
+                Write-Output $_
             }
         }
+    }
+    else {
+        Write-Output $_
     }
 } |
 Remove-Item -Confirm

@@ -13,7 +13,7 @@ New-Variable -Option Constant FfmpegQuality -Value 7
 New-Variable -Option Constant FfmpegJobs -Value ([Environment]::ProcessorCount - 1)
 New-Variable -Option Constant FfmpegDate_anyhow -Value ([datetime]"2023-03-03")
 New-Variable -Option Constant FfmpegDate_by_conversion -Value @{
-    [Conversion] "cnv_bass"  = [datetime]"2023-10-18"
+    [Conversion] "cnv_bass"  = [datetime]"2023-10-21"
     [Conversion] "cnv_hdcd"  = [datetime]"2023-03-03"
     [Conversion] "cnv_xfeed" = [datetime]"2023-04-20"
     [Conversion] "cnv_mono"  = [datetime]"2023-03-03"
@@ -29,6 +29,10 @@ New-Variable -Option Constant conversion_by_symbol -Value @{
     [char]"<" = [Conversion] "cnv_left"
     [char]">" = [Conversion] "cnv_right"
 }
+Add-Type -AssemblyName System.Drawing
+New-Variable -Option Constant jpegCodec -Value ([Drawing.Imaging.ImageCodecInfo]::GetImageEncoders().Where{ $_.FormatDescription -EQ "JPEG" }[0])
+New-Variable -Option Constant jpegParams -Value ([Drawing.Imaging.EncoderParameters]::new())
+$jpegParams.Param[0] = [Drawing.Imaging.EncoderParameter]::new([Drawing.Imaging.Encoder]::Quality, $ImageQuality)
 
 
 enum Treatment {
@@ -53,7 +57,7 @@ class Covet {
     [Collections.Generic.List[Conversion]]$conversions
     Covet([Treatment]$treatment) {
         $this.treatment = $treatment
-        $this.conversions = [Collections.Generic.List[Conversion]]::new(1)
+        $this.conversions = [Collections.Generic.List[Conversion]]::new()
     }
 }
 
@@ -61,7 +65,7 @@ function Get-Covets {
     param (
         [string] $InPath
     )
-    $covets = [Collections.Generic.Dictionary[string, Covet]]::new(16)
+    $covets = [Collections.Generic.Dictionary[string, Covet]]::new()
     Get-Content -LiteralPath $InPath -Encoding UTF8 -ErrorAction Ignore |
     ForEach-Object {
         $symbols, $name = $_ -split " ", 2
@@ -120,8 +124,6 @@ function Set-Covets {
     } | Set-Content -LiteralPath $OutPath -Encoding UTF8
 }
 
-Add-Type -AssemblyName System.Drawing
-Add-Type -Assembly PresentationCore
 Add-Type -TypeDefinition @"
     using System;
     using System.Runtime.InteropServices;
@@ -153,9 +155,6 @@ function Convert-Cover {
     $srcImage.Dispose()
 
     $DstStream = [IO.MemoryStream]::new(48e3)
-    $jpegParams = [Drawing.Imaging.EncoderParameters]::new(1)
-    $jpegParams.Param[0] = [Drawing.Imaging.EncoderParameter]::new([Drawing.Imaging.Encoder]::Quality, $ImageQuality)
-    $jpegCodec = [Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object -Property FormatDescription -EQ "JPEG"
     $DstImage.Save($DstStream, $jpegCodec, $jpegParams)
     $DstStream.Close()
     $NewDstBytes = $DstStream.ToArray()
@@ -220,7 +219,6 @@ function Get-Default-Treatment {
     )
 
     [Treatment]$treatment = switch -Wildcard ($Filename) {
-        "*.new.*" { "ignore"; break }
         "*.old.*" { "ignore"; break }
         "*.raw.*" { "ignore"; break }
         "*.iso" { "ignore" }
@@ -268,7 +266,7 @@ function Update-Folder {
             $src_LastWriteTime = $_.LastWriteTime
             [void] $names_unused.Remove($src_name)
             $covet = $covets[$src_name]
-            if ($null -eq $covet) {
+            if (-not $covet) {
                 $covet = [Covet]::new((Get-Default-Treatment $src_name))
             }
             switch ($covet.treatment) {
@@ -314,25 +312,25 @@ function Update-Folder {
                             ++$dst_count
                             $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
                             if ($null -eq $dst -Or -Not $dst.Length -Or (Compare-Dates $dst.LastWriteTime $covet.conversions) -Or $src_LastWriteTime -gt $dst.LastWriteTime) {
-                                $ffmpeg_arglist = [Collections.Generic.List[string]]::new(8);
-                                $ffmpeg_arglist += @("-loglevel", "warning")
-                                $ffmpeg_arglist += @("-i", "`"$src_path`"")
-                                $filters = [Collections.Generic.List[string]]::new(8);
+                                $ffmpeg_arglist = [Collections.Generic.List[string]]::new();
+                                $ffmpeg_arglist += "-loglevel", "warning"
+                                $ffmpeg_arglist += "-i", "`"$src_path`""
+                                $filters = [Collections.Generic.List[string]]::new();
                                 foreach ($c in $covet.conversions.GetEnumerator()) {
                                     switch ($c) {
-                                        "cnv_bass" { $filters += @("bass=gain=6") }
-                                        "cnv_hdcd" { $filters += @("hdcd=disable_autoconvert=0") }
-                                        "cnv_xfeed" { $filters += @("crossfeed=level_in=1:strength=.5") }
-                                        "cnv_left" { $filters += @("pan=mono| c0=FL") }
-                                        "cnv_rght" { $filters += @("pan=mono| c0=FR") }
-                                        "cnv_mono" { $ffmpeg_arglist += @("-ac", 1) }
+                                        "cnv_bass" { $filters += "bass=gain=5" }
+                                        "cnv_hdcd" { $filters += "hdcd=disable_autoconvert=0" }
+                                        "cnv_xfeed" { $filters += "crossfeed=level_in=1:strength=.5" }
+                                        "cnv_left" { $filters += "pan=mono| c0=FL" }
+                                        "cnv_rght" { $filters += "pan=mono| c0=FR" }
+                                        "cnv_mono" { $ffmpeg_arglist += "-ac", 1 }
                                     }
                                 }
-                                $filters += @("aformat=sample_rates=48000|44100|32000|24000|22050|16000|12000|11025|8000|7350")
-                                $filters += @("volume=replaygain=album")
-                                $ffmpeg_arglist += @("-filter:a", "`"$($filters -join ",")`"")
-                                $ffmpeg_arglist += @("-q:a", $FfmpegQuality)
-                                $ffmpeg_arglist += @("`"$dst_path_abs`"", "-y")
+                                $filters += "aformat=sample_rates=48000|44100|32000|24000|22050|16000|12000|11025|8000|7350"
+                                $filters += "volume=replaygain=album"
+                                $ffmpeg_arglist += "-filter:a", "`"$($filters -join ",")`""
+                                $ffmpeg_arglist += "-q:a", $FfmpegQuality
+                                $ffmpeg_arglist += "`"$dst_path_abs`"", "-y"
 
                                 while ((Get-Job -State "Running").count -ge $FfmpegJobs) {
                                     Start-Sleep -Seconds 0.5
@@ -370,7 +368,7 @@ function Update-Folder {
 
 # Full recursion but only reporting progress on the 2nd level
 Write-Progress -Activity "Looking in folder" -Status $FolderSrc -PercentComplete -1
-$diritems = @(Get-ChildItem $FolderSrc -Directory | Get-ChildItem -Directory)
+$diritems = Get-ChildItem $FolderSrc -Directory | Get-ChildItem -Directory
 0..($diritems.Count - 1) | ForEach-Object {
     $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
     $dir = $diritems[$_]
