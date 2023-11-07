@@ -1,2 +1,2 @@
-@pwsh %~dpn0.ps1
+@pwsh sync\main.ps1 publish_changes
 @set /P="Press Enter to close"
