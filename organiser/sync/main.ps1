@@ -172,22 +172,20 @@ function Update-FolderSrc {
                     }
                     $dst_path = Join-Path $dst_folder $dst_name
                     $dst_path_abs = Join-Path $dst_folder_abs $dst_name
-                    if (-Not (Test-Path -LiteralPath $dst_path)) {
-                        switch ($mode) {
-                            "publish_changes" {
+                    switch ($mode) {
+                        "publish_changes" {
+                            if (-Not (Test-Path -LiteralPath $dst_folder)) {
                                 Write-Host "Creating $dst_folder"
                                 New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
                             }
-                            "register_removes" { 
+                            Update-FileFromSrc $covet $src_path $src_LastWriteTime $dst_path $dst_path_abs
+                        }
+                        "register_removes" { 
+                            if (-Not (Test-Path -LiteralPath $dst_path)) {
                                 Write-Host "${covet_path}: adding ""$src_name"""
                                 $covets[$src_name] = [Covet]::new("ignore")
                                 ++$covet_changes
                             }
-                        }
-                    }
-                    switch ($mode) {
-                        "publish_changes" {
-                            Update-FileFromSrc $covet $src_path $src_LastWriteTime $dst_path $dst_path_abs
                         }
                     }
                 }
