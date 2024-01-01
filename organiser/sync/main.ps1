@@ -126,150 +126,149 @@ function Update-FileFromSrc {
 }
 
 function Update-FolderSrc {
-    param (
-        [IO.DirectoryInfo] $diritem
-    )
+    process {
+        $diritem = [IO.DirectoryInfo] $_
+        $suffix = Get-PathSuffix $AbsFolderSrc $diritem.FullName
+        $src_folder = $FolderSrc + $suffix
+        $dst_folder = $FolderDst + $suffix
+        $dst_folder_abs = $AbsFolderDst + $suffix
 
-    $suffix = Get-PathSuffix $AbsFolderSrc $diritem.FullName
-    $src_folder = $FolderSrc + $suffix
-    $dst_folder = $FolderDst + $suffix
-    $dst_folder_abs = $AbsFolderDst + $suffix
+        $covet_path = Join-Path $src_folder "covet.txt"
+        $covets = Get-Covets $covet_path
+        if ($null -ne $covets) {
+            $names_unused = [Collections.Generic.List[string]]::new()
+            $covets.Keys | ForEach-Object { $names_unused.Add($_) }
+            $src_count = 0
+            $dst_count = 0
+            $covet_changes = 0
 
-    $covet_path = Join-Path $src_folder "covet.txt"
-    $covets = Get-Covets $covet_path
-    if ($null -ne $covets) {
-        $names_unused = [Collections.Generic.List[string]]::new()
-        $covets.Keys | ForEach-Object { $names_unused.Add($_) }
-        $src_count = 0
-        $dst_count = 0
-        $covet_changes = 0
-
-        $diritem.EnumerateFiles() |
-        ForEach-Object {
-            $src_path = $_.FullName
-            $src_name = $_.Name
-            $src_basename = $_.BaseName
-            $src_LastWriteTime = $_.LastWriteTime
-            [void] $names_unused.Remove($src_name)
-            $covet = $covets[$src_name]
-            if (-not $covet) {
-                $covet = [Covet]::new((Get-DefaultTreatment $src_name))
-            }
-            switch ($covet.treatment) {
-                "unknown" { Write-Warning "Unknown $src_path" }
-                "ignore" {}
-                default {
-                    $src_count += 1
-                    $dst_count += switch ($covet.treatment) {
-                        "cover" { 0 }
-                        "copy" { 1 }
-                        "convert" { 1 }
-                    }
-                    $dst_name = switch ($covet.treatment) {
-                        "cover" { $ImageName }
-                        "copy" { $src_name }
-                        "convert" { $src_basename + ".m4a" }
-                    }
-                    $dst_path = Join-Path $dst_folder $dst_name
-                    $dst_path_abs = Join-Path $dst_folder_abs $dst_name
-                    switch ($mode) {
-                        "publish_changes" {
-                            if (-Not (Test-Path -LiteralPath $dst_folder)) {
-                                Write-Host "Creating $dst_folder"
-                                New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
-                            }
-                            Update-FileFromSrc $covet $src_path $src_LastWriteTime $dst_path $dst_path_abs
+            $diritem.EnumerateFiles() |
+            ForEach-Object {
+                $src_path = $_.FullName
+                $src_name = $_.Name
+                $src_basename = $_.BaseName
+                $src_LastWriteTime = $_.LastWriteTime
+                [void] $names_unused.Remove($src_name)
+                $covet = $covets[$src_name]
+                if (-not $covet) {
+                    $covet = [Covet]::new((Get-DefaultTreatment $src_name))
+                }
+                switch ($covet.treatment) {
+                    "unknown" { Write-Warning "Unknown $src_path" }
+                    "ignore" {}
+                    default {
+                        $src_count += 1
+                        $dst_count += switch ($covet.treatment) {
+                            "cover" { 0 }
+                            "copy" { 1 }
+                            "convert" { 1 }
                         }
-                        "register_removes" { 
-                            if (-Not (Test-Path -LiteralPath $dst_path)) {
-                                Write-Host "${covet_path}: adding ""$src_name"""
-                                $covets[$src_name] = [Covet]::new("ignore")
-                                ++$covet_changes
+                        $dst_name = switch ($covet.treatment) {
+                            "cover" { $ImageName }
+                            "copy" { $src_name }
+                            "convert" { $src_basename + ".m4a" }
+                        }
+                        $dst_path = Join-Path $dst_folder $dst_name
+                        $dst_path_abs = Join-Path $dst_folder_abs $dst_name
+                        switch ($mode) {
+                            "publish_changes" {
+                                if (-Not (Test-Path -LiteralPath $dst_folder)) {
+                                    Write-Host "Creating $dst_folder"
+                                    New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
+                                }
+                                Update-FileFromSrc $covet $src_path $src_LastWriteTime $dst_path $dst_path_abs
+                            }
+                            "register_removes" { 
+                                if (-Not (Test-Path -LiteralPath $dst_path)) {
+                                    Write-Host "${covet_path}: adding ""$src_name"""
+                                    $covets[$src_name] = [Covet]::new("ignore")
+                                    ++$covet_changes
+                                }
                             }
                         }
                     }
                 }
+                Get-Job | Receive-Job | Write-Error
             }
-            Get-Job | Receive-Job | Write-Error
-        }
-        ForEach ($n in $names_unused) {
-            switch ($mode) {
-                "publish_changes" {
-                    Write-Warning "${covet_path}: unused item ""$n"""
-                }
-                "register_removes" { 
-                    Write-Host "${covet_path}: removing ""$n"""
-                    if (-Not $covets.Remove($n)) {
-                        throw "Lost covet!"
+            ForEach ($n in $names_unused) {
+                switch ($mode) {
+                    "publish_changes" {
+                        Write-Warning "${covet_path}: unused item ""$n"""
                     }
-                    ++$covet_changes
+                    "register_removes" { 
+                        Write-Host "${covet_path}: removing ""$n"""
+                        if (-Not $covets.Remove($n)) {
+                            throw "Lost covet!"
+                        }
+                        ++$covet_changes
+                    }
                 }
             }
-        }
-        if ($covet_changes) {
-            if ($covets.Count) {
-                Set-Covets $covets $covet_path
+            if ($covet_changes) {
+                if ($covets.Count) {
+                    Set-Covets $covets $covet_path
+                }
+                else {
+                    Write-Output $covet_path
+                }
             }
-            else {
-                Write-Output $covet_path
+            if ($src_count -And -Not $dst_count) {
+                Write-Warning "Unused folder $src_folder"
             }
-        }
-        if ($src_count -And -Not $dst_count) {
-            Write-Warning "Unused folder $src_folder"
         }
     }
 }
 
 function Update-FolderDst {
-    param (
-        [IO.DirectoryInfo] $diritem
-    )
+    process {
+        $diritem = [IO.DirectoryInfo] $_
+        $suffix = Get-PathSuffix $AbsFolderDst $diritem.FullName
+        $src_folder = $FolderSrc + $suffix
+        if (Test-Path -LiteralPath $src_folder) {
+            $covet_path = Join-Path $src_folder "covet.txt"
+            $covets = Get-Covets $covet_path
 
-    $suffix = Get-PathSuffix $AbsFolderDst $_.FullName
-    $src_folder = $FolderSrc + $suffix
-    if (Test-Path -LiteralPath $src_folder) {
-        $covet_path = Join-Path $src_folder "covet.txt"
-        $covets = Get-Covets $covet_path
-
-        $_.EnumerateFiles() |
-        ForEach-Object {
-            [Boolean[]] $justifications = if ($_.Name -eq $ImageName) {
-                foreach ($n in "cover.jpg", "cover.jpeg", "cover.png", "cover.webm") {
-                    Join-Path $src_folder $n | Test-Path
+            $diritem.EnumerateFiles() |
+            ForEach-Object {
+                [Boolean[]] $justifications = if ($_.Name -eq $ImageName) {
+                    foreach ($n in "cover.jpg", "cover.jpeg", "cover.png", "cover.webm") {
+                        Join-Path $src_folder $n | Test-Path
+                    }
                 }
-            }
-            else {
-                foreach ($n in $_.Name,
+                else {
+                    foreach ($n in $_.Name,
                                ($_.BaseName + ".ac3"),
                                ($_.BaseName + ".flac"),
                                ($_.BaseName + ".webm")) {
                     (Join-Path $src_folder $n | Test-Path) -And ($null -eq $covets[$n] -Or $covets[$n].treatment -ne "ignore")
+                    }
+                }
+                if ($justifications -NotContains $true) {
+                    Write-Output $_
                 }
             }
-            if ($justifications -NotContains $true) {
-                Write-Output $_
-            }
         }
-    }
-    else {
-        Write-Output $_
+        else {
+            Write-Output $_
+        }
     }
 }
 
 $mode = [Mode] $args[0]
 switch ($mode) {
     "clean_up" {
+        # Full recursion in Dst but only reporting progress on the 1st level
         $diritems = Get-ChildItem $FolderDst -Directory
         0..($diritems.Count - 1) | ForEach-Object {
             $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
             $dir = $diritems[$_]
             $dst_folder = $FolderDst + (Get-PathSuffix $AbsFolderDst $dir.FullName)
             Write-Progress -Activity "Looking for spurious files" -Status $dst_folder -PercentComplete $pct
-            $dir | Get-ChildItem -Directory -Recurse | ForEach-Object { Update-FolderDst $_ }
-        } | Remove-Item -Confirm
+            Get-ChildItem $dir -Directory -Recurse
+        } | Update-FolderDst | Remove-Item -Confirm
     }
     Default { 
-        # Full recursion but only reporting progress on the 2nd level
+        # Full recursion in Src but only reporting progress on the 2nd level
         Write-Progress -Activity "Looking in folder" -Status $FolderSrc -PercentComplete -1
         $diritems = Get-ChildItem $FolderSrc -Directory | Get-ChildItem -Directory
         0..($diritems.Count - 1) | ForEach-Object {
@@ -277,9 +276,8 @@ switch ($mode) {
             $dir = $diritems[$_]
             $src_folder = $FolderSrc + (Get-PathSuffix $AbsFolderSrc $dir.FullName)
             Write-Progress -Activity "Looking in folder" -Status $src_folder -PercentComplete $pct
-            Update-FolderSrc $dir
-            $dir | Get-ChildItem -Directory -Recurse | ForEach-Object { Update-FolderSrc $_ }
-        } | Remove-Item -Confirm
+            @($dir) + (Get-ChildItem $dir -Directory -Recurse)
+        } | Update-FolderSrc | Remove-Item -Confirm
     }
 }
 
