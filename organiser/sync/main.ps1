@@ -13,13 +13,13 @@ New-Variable -Option Constant AbsFolderDst -Value (Resolve-Path -LiteralPath $Fo
 New-Variable -Option Constant FfmpegQuality -Value 7
 New-Variable -Option Constant FfmpegJobs -Value ([Environment]::ProcessorCount - 1)
 New-Variable -Option Constant FfmpegDate_anyhow -Value ([datetime]"2023-03-03")
-New-Variable -Option Constant FfmpegDate_by_cnv -Value @{
-    [Conversion] "cnv_bass"  = [datetime]"2023-10-21"
-    [Conversion] "cnv_hdcd"  = [datetime]"2023-03-03"
-    [Conversion] "cnv_xfeed" = [datetime]"2023-04-20"
-    [Conversion] "cnv_mono"  = [datetime]"2023-03-03"
-    [Conversion] "cnv_left"  = [datetime]"2023-03-03"
-    [Conversion] "cnv_right" = [datetime]"2023-03-03"
+New-Variable -Option Constant FfmpegDate_hdcd -Value ([datetime]"2023-03-03")
+New-Variable -Option Constant FfmpegDate_bass -Value ([datetime]"2023-10-21")
+New-Variable -Option Constant FfmpegDate_by_mix -Value @{
+    [ChannelMix] "mix_xfeed" = [datetime]"2023-04-20"
+    [ChannelMix] "mix_mono"  = [datetime]"2023-03-03"
+    [ChannelMix] "mix_left"  = [datetime]"2023-03-03"
+    [ChannelMix] "mix_right" = [datetime]"2023-03-03"
 }
 
 enum Mode {
@@ -31,13 +31,19 @@ enum Mode {
 function Compare-Dates {
     param (
         [DateTime] $LastWriteTime,
-        [Conversion[]] $conversions
+        [Covet] $covet
     )
     if ($FfmpegDate_anyhow -gt $LastWriteTime) {
         return $true
     }
-    foreach ($c in $conversions.GetEnumerator()) {
-        if ($FfmpegDate_by_cnv[$c] -gt $LastWriteTime) {
+    if ($covet -eq "convert") {
+        if ($covet.hdcd -And $FfmpegDate_hdcd -gt $LastWriteTime) {
+            return $true
+        }
+        if ($covet.bass -And $FfmpegDate_bass -gt $LastWriteTime) {
+            return $true
+        }
+        if ($FfmpegDate_by_mix[$covet.mix] -gt $LastWriteTime) {
             return $true
         }
     }
@@ -81,20 +87,22 @@ function Update-FileFromSrc {
         }
         "convert" {
             $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
-            if ($null -eq $dst -Or -Not $dst.Length -Or (Compare-Dates $dst.LastWriteTime $covet.conversions) -Or $src_LastWriteTime -gt $dst.LastWriteTime) {
+            if ($null -eq $dst -Or -Not $dst.Length -Or (Compare-Dates $dst.LastWriteTime $covet) -Or $src_LastWriteTime -gt $dst.LastWriteTime) {
                 $ffmpeg_arglist = [Collections.Generic.List[string]]::new();
                 $ffmpeg_arglist += "-loglevel", "warning"
                 $ffmpeg_arglist += "-i", "`"$src_path`""
                 $filters = [Collections.Generic.List[string]]::new();
-                foreach ($c in $covet.conversions.GetEnumerator()) {
-                    switch ($c) {
-                        "cnv_bass" { $filters += "bass=gain=5" }
-                        "cnv_hdcd" { $filters += "hdcd=disable_autoconvert=0" }
-                        "cnv_xfeed" { $filters += "crossfeed=level_in=1:strength=.5" }
-                        "cnv_left" { $filters += "pan=mono| c0=FL" }
-                        "cnv_rght" { $filters += "pan=mono| c0=FR" }
-                        "cnv_mono" { $ffmpeg_arglist += "-ac", 1 }
-                    }
+                if ($covet.hdcd) {
+                    $filters += "hdcd=disable_autoconvert=0"
+                }
+                switch ($covet.mix) {
+                    "mix_xfeed" { $filters += "crossfeed=level_in=1:strength=.5" }
+                    "mix_left" { $filters += "pan=mono| c0=FL" }
+                    "mix_rght" { $filters += "pan=mono| c0=FR" }
+                    "mix_mono" { $ffmpeg_arglist += "-ac", 1 }
+                }
+                if ($covet.bass) {
+                    $filters += "bass=gain=5"
                 }
                 $filters += "aformat=sample_rates=48000|44100|32000|24000|22050|16000|12000|11025|8000|7350"
                 $filters += "volume=replaygain=album"
@@ -129,7 +137,7 @@ function Update-FolderSrc {
     process {
         $diritem = [IO.DirectoryInfo] $_
         $suffix = Get-PathSuffix $AbsFolderSrc $diritem.FullName
-        $src_folder = $FolderSrc + $suffix
+        $src_folder = $diritem.FullName
         $dst_folder = $FolderDst + $suffix
         $dst_folder_abs = $AbsFolderDst + $suffix
 
@@ -178,7 +186,7 @@ function Update-FolderSrc {
                                 }
                                 Update-FileFromSrc $covet $src_path $src_LastWriteTime $dst_path $dst_path_abs
                             }
-                            "register_removes" { 
+                            "register_removes" {
                                 if (-Not (Test-Path -LiteralPath $dst_path)) {
                                     Write-Host "${covet_path}: adding ""$src_name"""
                                     $covets[$src_name] = [Covet]::new("ignore")
@@ -195,7 +203,7 @@ function Update-FolderSrc {
                     "publish_changes" {
                         Write-Warning "${covet_path}: unused item ""$n"""
                     }
-                    "register_removes" { 
+                    "register_removes" {
                         Write-Host "${covet_path}: removing ""$n"""
                         if (-Not $covets.Remove($n)) {
                             throw "Lost covet!"
@@ -206,6 +214,7 @@ function Update-FolderSrc {
             }
             if ($covet_changes) {
                 if ($covets.Count) {
+                    Con
                     Set-Covets $covets $covet_path
                 }
                 else {
@@ -267,7 +276,7 @@ switch ($mode) {
             Get-ChildItem $dir -Directory -Recurse
         } | Update-FolderDst | Remove-Item -Confirm
     }
-    Default { 
+    Default {
         # Full recursion in Src but only reporting progress on the 2nd level
         Write-Progress -Activity "Looking in folder" -Status $FolderSrc -PercentComplete -1
         $diritems = Get-ChildItem $FolderSrc -Directory | Get-ChildItem -Directory

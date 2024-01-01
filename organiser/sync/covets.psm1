@@ -1,11 +1,11 @@
 New-Variable -Option Constant ignore_symbol -Value ([char]"-")
-New-Variable -Option Constant conversion_by_symbol -Value @{
-    [char]"B" = [Conversion] "cnv_bass"
-    [char]"H" = [Conversion] "cnv_hdcd"
-    [char]"X" = [Conversion] "cnv_xfeed"
-    [char]"|" = [Conversion] "cnv_mono"
-    [char]"<" = [Conversion] "cnv_left"
-    [char]">" = [Conversion] "cnv_right"
+New-Variable -Option Constant hdcd_symbol -Value ([char]"H")
+New-Variable -Option Constant bass_symbol -Value ([char]"B")
+New-Variable -Option Constant mix_by_symbol -Value @{
+    [char]"X" = [ChannelMix] "mix_xfeed"
+    [char]"|" = [ChannelMix] "mix_mono"
+    [char]"<" = [ChannelMix] "mix_left"
+    [char]">" = [ChannelMix] "mix_right"
 }
 
 enum Treatment {
@@ -16,21 +16,24 @@ enum Treatment {
     convert
 }
 
-enum Conversion {
-    cnv_hdcd
-    cnv_bass
-    cnv_xfeed
-    cnv_mono
-    cnv_left
-    cnv_right
+enum ChannelMix {
+    mix_passthrough
+    mix_xfeed
+    mix_mono
+    mix_left
+    mix_right
 }
 
 class Covet {
     [Treatment]$treatment
-    [Collections.Generic.List[Conversion]]$conversions
+    [Boolean]$hdcd
+    [ChannelMix]$mix
+    [Boolean]$bass
     Covet([Treatment]$treatment) {
         $this.treatment = $treatment
-        $this.conversions = [Collections.Generic.List[Conversion]]::new()
+        $this.hdcd = $false
+        $this.bass = $false
+        $this.mix = "mix_passthrough"
     }
 }
 
@@ -56,12 +59,17 @@ function Get-Covets {
         else {
             $covet = [Covet]::new("convert")
             foreach ($s in $symbols.GetEnumerator()) {
-                $conversion = $conversion_by_symbol[$s]
-                if ($null -eq $conversion) {
-                    Write-Error "${InPath}: invalid symbol ""$s"" for name ""$name"""
-                    return $null
+                $covet.hdcd = ($s -eq $hdcd_symbol)
+                $covet.bass = ($s -eq $bass_symbol)
+                $mix = $mix_by_symbol[$s]
+                if ($null -eq $mix) {
+                    if (-not $covet.hdcd -and -not $covet.bass) {
+                        Write-Error "${InPath}: invalid symbol ""$s"" for name ""$name"""
+                        return $null
+                    }
+                    $mix = "mix_passthrough"
                 }
-                $covet.conversions.Add($conversion)
+                $covet.mix = $mix
             }
         }
         $covets[$name] = $covet
@@ -78,15 +86,21 @@ function Set-Covets {
         $name, $covet = $_.Key, $_.Value
         $symbols = ""
         switch ($covet.treatment) {
-            "ignore" { 
+            "ignore" {
                 $symbols += $ignore_symbol
             }
-            "convert" { 
-                foreach ($p in $conversion_by_symbol.GetEnumerator()) {
-                    ([string] $symbol, [Conversion] $c) = ($p.Key, $p.Value)
-                    if ($covet.conversions -contains $c) {
+            "convert" {
+                if ($covet.hdcd) {
+                    $symbols += $hdcd_symbol
+                }
+                foreach ($p in $mix_by_symbol.GetEnumerator()) {
+                    ([string] $symbol, [ChannelMix] $c) = ($p.Key, $p.Value)
+                    if ($covet.mix -eq $c) {
                         $symbols += $symbol
                     }
+                }
+                if ($covet.bass) {
+                    $symbols += $bass_symbol
                 }
             }
         }
