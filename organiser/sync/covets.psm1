@@ -35,6 +35,16 @@ class Covet {
         $this.bass = $false
         $this.mix = "mix_passthrough"
     }
+
+    [char] GetConvChar() {
+        if ($this.treatment -ne "convert") {
+            throw
+        }
+        return [char]((1 -shl 5) -bor
+            ([int]$this.hdcd -shl 4) -bor
+            ([int]$this.bass -shl 3) -bor
+            [int]$this.mix)
+    }
 }
 
 function Get-Covets {

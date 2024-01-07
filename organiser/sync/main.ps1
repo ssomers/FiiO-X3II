@@ -88,10 +88,10 @@ function Update-FileFromSrc {
         "convert" {
             $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
             if ($null -eq $dst -Or -Not $dst.Length -Or (Compare-Dates $dst.LastWriteTime $covet) -Or $src_LastWriteTime -gt $dst.LastWriteTime) {
-                $ffmpeg_arglist = [Collections.Generic.List[string]]::new();
+                $ffmpeg_arglist = [Collections.Generic.List[string]]::new()
                 $ffmpeg_arglist += "-loglevel", "warning"
                 $ffmpeg_arglist += "-i", "`"$src_path`""
-                $filters = [Collections.Generic.List[string]]::new();
+                $filters = [Collections.Generic.List[string]]::new()
                 if ($covet.hdcd) {
                     $filters += "hdcd=disable_autoconvert=0"
                 }
@@ -151,53 +151,53 @@ function Update-FolderSrc {
             $covet_changes = 0
 
             $diritem.EnumerateFiles() |
-            ForEach-Object {
-                $src_path = $_.FullName
-                $src_name = $_.Name
-                $src_basename = $_.BaseName
-                $src_LastWriteTime = $_.LastWriteTime
-                [void] $names_unused.Remove($src_name)
-                $covet = $covets[$src_name]
-                if (-not $covet) {
-                    $covet = [Covet]::new((Get-DefaultTreatment $src_name))
-                }
-                switch ($covet.treatment) {
-                    "unknown" { Write-Warning "Unknown $src_path" }
-                    "ignore" {}
-                    default {
-                        $src_count += 1
-                        $dst_count += switch ($covet.treatment) {
-                            "cover" { 0 }
-                            "copy" { 1 }
-                            "convert" { 1 }
-                        }
-                        $dst_name = switch ($covet.treatment) {
-                            "cover" { $ImageName }
-                            "copy" { $src_name }
-                            "convert" { $src_basename + ".m4a" }
-                        }
-                        $dst_path = Join-Path $dst_folder $dst_name
-                        $dst_path_abs = Join-Path $dst_folder_abs $dst_name
-                        switch ($mode) {
-                            "publish_changes" {
-                                if (-Not (Test-Path -LiteralPath $dst_folder)) {
-                                    Write-Host "Creating $dst_folder"
-                                    New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
-                                }
-                                Update-FileFromSrc $covet $src_path $src_LastWriteTime $dst_path $dst_path_abs
+                ForEach-Object {
+                    $src_path = $_.FullName
+                    $src_name = $_.Name
+                    $src_basename = $_.BaseName
+                    $src_LastWriteTime = $_.LastWriteTime
+                    [void] $names_unused.Remove($src_name)
+                    $covet = $covets[$src_name]
+                    if (-not $covet) {
+                        $covet = [Covet]::new((Get-DefaultTreatment $src_name))
+                    }
+                    switch ($covet.treatment) {
+                        "unknown" { Write-Warning "Unknown $src_path" }
+                        "ignore" {}
+                        default {
+                            $src_count += 1
+                            $dst_count += switch ($covet.treatment) {
+                                "cover" { 0 }
+                                "copy" { 1 }
+                                "convert" { 1 }
                             }
-                            "register_removes" {
-                                if (-Not (Test-Path -LiteralPath $dst_path)) {
-                                    Write-Host "${covet_path}: adding ""$src_name"""
-                                    $covets[$src_name] = [Covet]::new("ignore")
-                                    ++$covet_changes
+                            $dst_name = switch ($covet.treatment) {
+                                "cover" { $ImageName }
+                                "copy" { $src_name }
+                                "convert" { $src_basename + ".m4a" }
+                            }
+                            $dst_path = Join-Path $dst_folder $dst_name
+                            $dst_path_abs = Join-Path $dst_folder_abs $dst_name
+                            switch ($mode) {
+                                "publish_changes" {
+                                    if (-Not (Test-Path -LiteralPath $dst_folder)) {
+                                        Write-Host "Creating $dst_folder"
+                                        New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
+                                    }
+                                    Update-FileFromSrc $covet $src_path $src_LastWriteTime $dst_path $dst_path_abs
+                                }
+                                "register_removes" {
+                                    if (-Not (Test-Path -LiteralPath $dst_path)) {
+                                        Write-Host "${covet_path}: adding ""$src_name"""
+                                        $covets[$src_name] = [Covet]::new("ignore")
+                                        ++$covet_changes
+                                    }
                                 }
                             }
                         }
                     }
+                    Get-Job | Receive-Job | Write-Error
                 }
-                Get-Job | Receive-Job | Write-Error
-            }
             ForEach ($n in $names_unused) {
                 switch ($mode) {
                     "publish_changes" {
@@ -238,24 +238,24 @@ function Update-FolderDst {
             $covets = Get-Covets $covet_path
 
             $diritem.EnumerateFiles() |
-            ForEach-Object {
-                [Boolean[]] $justifications = if ($_.Name -eq $ImageName) {
-                    foreach ($n in "cover.jpg", "cover.jpeg", "cover.png", "cover.webm") {
-                        Join-Path $src_folder $n | Test-Path
+                ForEach-Object {
+                    [Boolean[]] $justifications = if ($_.Name -eq $ImageName) {
+                        foreach ($n in "cover.jpg", "cover.jpeg", "cover.png", "cover.webm") {
+                            Join-Path $src_folder $n | Test-Path
+                        }
                     }
-                }
-                else {
-                    foreach ($n in $_.Name,
+                    else {
+                        foreach ($n in $_.Name,
                                ($_.BaseName + ".ac3"),
                                ($_.BaseName + ".flac"),
                                ($_.BaseName + ".webm")) {
                     (Join-Path $src_folder $n | Test-Path) -And ($null -eq $covets[$n] -Or $covets[$n].treatment -ne "ignore")
+                        }
+                    }
+                    if ($justifications -NotContains $true) {
+                        Write-Output $_
                     }
                 }
-                if ($justifications -NotContains $true) {
-                    Write-Output $_
-                }
-            }
         }
         else {
             Write-Output $_
