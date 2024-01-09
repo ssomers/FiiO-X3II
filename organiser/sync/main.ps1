@@ -12,7 +12,6 @@ New-Variable -Option Constant AbsFolderDst -Value (Resolve-Path -LiteralPath $Fo
 
 New-Variable -Option Constant FfmpegQuality -Value 7
 New-Variable -Option Constant FfmpegJobs -Value ([Environment]::ProcessorCount - 1)
-New-Variable -Option Constant FfmpegDate_anyhow -Value ([datetime]"2023-03-03")
 New-Variable -Option Constant FfmpegDate_hdcd -Value ([datetime]"2023-03-03")
 New-Variable -Option Constant FfmpegDate_bass -Value ([datetime]"2023-10-21")
 New-Variable -Option Constant FfmpegDate_by_mix -Value @{
@@ -26,28 +25,6 @@ enum Mode {
     publish_changes
     register_removes
     clean_up
-}
-
-function Compare-Dates {
-    param (
-        [DateTime] $LastWriteTime,
-        [Covet] $covet
-    )
-    if ($FfmpegDate_anyhow -gt $LastWriteTime) {
-        return $true
-    }
-    if ($covet -eq "convert") {
-        if ($covet.hdcd -And $FfmpegDate_hdcd -gt $LastWriteTime) {
-            return $true
-        }
-        if ($covet.bass -And $FfmpegDate_bass -gt $LastWriteTime) {
-            return $true
-        }
-        if ($FfmpegDate_by_mix[$covet.mix] -gt $LastWriteTime) {
-            return $true
-        }
-    }
-    $false
 }
 
 function Update-FileFromSrc {
@@ -86,8 +63,11 @@ function Update-FileFromSrc {
             }
         }
         "convert" {
+            $times = $src_LastWriteTime, $FfmpegDate_by_mix[$covet.mix]
+            if ($covet.hdcd) { $times += $FfmpegDate_hdcd }
+            if ($covet.bass) { $times += $FfmpegDate_bass }
             $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
-            if ($null -eq $dst -Or -Not $dst.Length -Or (Compare-Dates $dst.LastWriteTime $covet) -Or $src_LastWriteTime -gt $dst.LastWriteTime) {
+            if ($null -eq $dst -Or -Not $dst.Length -Or ($times -gt $dst.LastWriteTime).Count) {
                 $ffmpeg_arglist = [Collections.Generic.List[string]]::new()
                 $ffmpeg_arglist += "-loglevel", "warning"
                 $ffmpeg_arglist += "-i", "`"$src_path`""
