@@ -21,7 +21,8 @@ Add-Type -TypeDefinition @"
 function Convert-Cover {
     param (
         [string] $SrcPath,
-        [string] $DstPath
+        [string] $DstPath,
+        [string] $DstPathAbs
     )
     try {
         $SrcImage = [Drawing.Image]::FromFile($SrcPath)
@@ -45,7 +46,7 @@ function Convert-Cover {
     $NewDstBytes = $DstStream.ToArray()
 
     try {
-        $OldDstBytes = [IO.File]::ReadAllBytes($DstPath)
+        $OldDstBytes = [IO.File]::ReadAllBytes($DstPathAbs)
         $change = "Updating"
     }
     catch [IO.FileNotFoundException] {
@@ -55,7 +56,7 @@ function Convert-Cover {
     if ($OldDstBytes.Length -ne $NewDstBytes.Length -Or
         [msvcrt]::memcmp($OldDstBytes, $NewDstBytes, $NewDstBytes.Length) -ne 0) {
         Write-Host "$change $DstPath"
-        [IO.File]::WriteAllBytes($DstPath, $NewDstBytes)
+        [IO.File]::WriteAllBytes($DstPathAbs, $NewDstBytes)
     }
     else {
         #Write-Host "Checked $DstPath"

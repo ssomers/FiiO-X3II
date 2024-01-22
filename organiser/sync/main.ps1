@@ -27,6 +27,17 @@ enum Mode {
     clean_up
 }
 
+function Build-Destination {
+    param (
+        [string] $dst_folder
+    )
+
+    if (-Not (Test-Path -LiteralPath $dst_folder)) {
+        Write-Host "Creating $dst_folder"
+        New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
+    }
+}
+
 function Update-FileFromSrc {
     param (
         [Covet] $covet,
@@ -36,16 +47,7 @@ function Update-FileFromSrc {
         [string] $dst_path_abs
     )
 
-    if (-Not (Test-Path -LiteralPath $dst_folder)) {
-        Write-Host "Creating $dst_folder"
-        New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
-    }
     switch ($covet.treatment) {
-        "cover" {
-            # Must use absolute path because Convert-Cover somehow gets a different working
-            # directory (and Start-Process without -WorkingDirectory too).
-            Convert-Cover $src_path $dst_path_abs
-        }
         "copy" {
             if (-Not (Test-Path -LiteralPath $dst_path)) {
                 Write-Host "Linking $dst_path"
@@ -63,15 +65,15 @@ function Update-FileFromSrc {
             }
         }
         "convert" {
-            $times = $src_LastWriteTime, $FfmpegDate_by_mix[$covet.mix]
+            $private:times = $src_LastWriteTime, $FfmpegDate_by_mix[$covet.mix]
             if ($covet.hdcd) { $times += $FfmpegDate_hdcd }
             if ($covet.bass) { $times += $FfmpegDate_bass }
-            $dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
+            $private:dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
             if ($null -eq $dst -Or -Not $dst.Length -Or ($times -gt $dst.LastWriteTime).Count) {
-                $ffmpeg_arglist = [Collections.Generic.List[string]]::new()
+                $private:ffmpeg_arglist = [Collections.Generic.List[string]]::new()
+                $private:filters = [Collections.Generic.List[string]]::new()
                 $ffmpeg_arglist += "-loglevel", "warning"
                 $ffmpeg_arglist += "-i", "`"$src_path`""
-                $filters = [Collections.Generic.List[string]]::new()
                 if ($covet.hdcd) {
                     $filters += "hdcd=disable_autoconvert=0"
                 }
@@ -99,10 +101,10 @@ function Update-FileFromSrc {
                     # (https://github.com/PowerShell/PowerShell/issues/5576) but doesn't allow
                     # setting priority and doesn't let the process complete on Ctrl-C.
                     # We can't use -RedirectStandardError, it blocks the process from the start.
-                    $p = Start-Process -WindowStyle "Hidden" -PassThru "ffmpeg.exe" -ArgumentList $using:ffmpeg_arglist
+                    $private:p = Start-Process -WindowStyle "Hidden" -PassThru "ffmpeg.exe" -ArgumentList $using:ffmpeg_arglist
                     $p.PriorityClass = "BelowNormal"
                     $p.WaitForExit()
-                    $dst = Get-Item -LiteralPath $using:dst_path_abs -ErrorAction:SilentlyContinue
+                    $private:dst = Get-Item -LiteralPath $using:dst_path_abs -ErrorAction:SilentlyContinue
                     if ($null -eq $dst -Or -Not $dst.Length) {
                         Remove-Item -LiteralPath $using:dst_path_abs
                         throw "Failed to create $using:dst_path_abs { ffmpeg $using:ffmpeg_arglist }"
@@ -115,55 +117,61 @@ function Update-FileFromSrc {
 
 function Update-FolderSrc {
     process {
-        $diritem = [IO.DirectoryInfo] $_
-        $suffix = Get-PathSuffix $AbsFolderSrc $diritem.FullName
-        $src_folder = $diritem.FullName
-        $dst_folder = $FolderDst + $suffix
-        $dst_folder_abs = $AbsFolderDst + $suffix
+        $private:diritem = [IO.DirectoryInfo] $_
+        $private:suffix = Get-PathSuffix $AbsFolderSrc $diritem.FullName
+        $private:src_folder = $diritem.FullName
+        $private:dst_folder = $FolderDst + $suffix
+        $private:dst_folder_abs = $AbsFolderDst + $suffix
 
-        $covet_path = Join-Path $src_folder "covet.txt"
-        $covets = Get-Covets $covet_path
+        $private:covet_path = Join-Path $src_folder "covet.txt"
+        $private:covets = Get-Covets $covet_path
         if ($null -ne $covets) {
-            $names_unused = [Collections.Generic.List[string]]::new()
+            $private:names_unused = [Collections.Generic.List[string]]::new()
             $covets.Keys | ForEach-Object { $names_unused.Add($_) }
-            $src_count = 0
-            $dst_count = 0
-            $covet_changes = 0
+            $private:src_count = 0
+            $private:dst_count = 0
+            $private:covet_changes = 0
 
             $diritem.EnumerateFiles() |
                 ForEach-Object {
-                    $src_path = $_.FullName
-                    $src_name = $_.Name
-                    $src_basename = $_.BaseName
-                    $src_LastWriteTime = $_.LastWriteTime
+                    $private:src_path = $_.FullName
+                    $private:src_name = $_.Name
+                    $private:src_basename = $_.BaseName
+                    $private:src_LastWriteTime = $_.LastWriteTime
                     [void] $names_unused.Remove($src_name)
-                    $covet = $covets[$src_name]
+                    $private:covet = $covets[$src_name]
                     if (-not $covet) {
                         $covet = [Covet]::new((Get-DefaultTreatment $src_name))
                     }
                     switch ($covet.treatment) {
                         "unknown" { Write-Warning "Unknown $src_path" }
                         "ignore" {}
+                        "cover" { 
+                            $private:dst_path = Join-Path $dst_folder $ImageName
+                            $private:dst_path_abs = Join-Path $dst_folder_abs $ImageName
+                            switch ($mode) {
+                                "publish_changes" {
+                                    Build-Destination $dst_folder
+                                    # Must use absolute path because Convert-Cover somehow gets a different working
+                                    # directory (and Start-Process without -WorkingDirectory too).
+                                    Convert-Cover $src_path $dst_path $dst_path_abs
+                                }
+                                "register_removes" {
+                                }
+                            }
+                        }
                         default {
                             $src_count += 1
-                            $dst_count += switch ($covet.treatment) {
-                                "cover" { 0 }
-                                "copy" { 1 }
-                                "convert" { 1 }
-                            }
-                            $dst_name = switch ($covet.treatment) {
-                                "cover" { $ImageName }
+                            $dst_count += 1
+                            $private:dst_name = switch ($covet.treatment) {
                                 "copy" { $src_name }
                                 "convert" { $src_basename + ".m4a" }
                             }
-                            $dst_path = Join-Path $dst_folder $dst_name
-                            $dst_path_abs = Join-Path $dst_folder_abs $dst_name
+                            $private:dst_path = Join-Path $dst_folder $dst_name
+                            $private:dst_path_abs = Join-Path $dst_folder_abs $dst_name
                             switch ($mode) {
                                 "publish_changes" {
-                                    if (-Not (Test-Path -LiteralPath $dst_folder)) {
-                                        Write-Host "Creating $dst_folder"
-                                        New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
-                                    }
+                                    Build-Destination $dst_folder
                                     Update-FileFromSrc $covet $src_path $src_LastWriteTime $dst_path $dst_path_abs
                                 }
                                 "register_removes" {
