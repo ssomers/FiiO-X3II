@@ -90,7 +90,7 @@ function Update-FileFromSrc {
                 $ffmpeg_arglist += "-q:a", $FfmpegQuality
                 $ffmpeg_arglist += "`"$dst_path_abs`"", "-y"
 
-                while ((Get-Job -State "Running").count -ge $FfmpegJobs) {
+                while (@(Get-Job -State "Running").count -ge $FfmpegJobs) {
                     Start-Sleep -Seconds 0.5
                 }
                 Write-Host "Writing $dst_path"
@@ -105,7 +105,7 @@ function Update-FileFromSrc {
                     $dst = Get-Item -LiteralPath $using:dst_path_abs -ErrorAction:SilentlyContinue
                     if ($null -eq $dst -Or -Not $dst.Length) {
                         Remove-Item -LiteralPath $using:dst_path_abs
-                        "Failed to create $using:dst_path_abs { ffmpeg $using:ffmpeg_arglist }"
+                        throw "Failed to create $using:dst_path_abs { ffmpeg $using:ffmpeg_arglist }"
                     }
                 } | Out-Null
             }
@@ -194,7 +194,6 @@ function Update-FolderSrc {
             }
             if ($covet_changes) {
                 if ($covets.Count) {
-                    Con
                     Set-Covets $covets $covet_path
                 }
                 else {
