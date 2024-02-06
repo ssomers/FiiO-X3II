@@ -21,12 +21,6 @@ New-Variable -Option Constant FfmpegDate_by_mix -Value @{
     [ChannelMix] "mix_right" = [datetime]"2023-03-03"
 }
 
-enum Mode {
-    publish_changes
-    register_removes
-    clean_up
-}
-
 function Build-Destination {
     param (
         [string] $dst_folder
@@ -61,7 +55,7 @@ function Update-FileFromSrc {
                 New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) -Force | Out-Null
             }
             else {
-                Write-Warning "Unhinged $dst_path"
+                Write-Warning "Keeping unhinged $dst_path"
             }
         }
         "convert" {
@@ -226,23 +220,23 @@ function Update-FolderDst {
 
             $diritem.EnumerateFiles() |
                 ForEach-Object {
-                    [Boolean[]] $justifications = if ($_.Name -eq $ImageName) {
-                        foreach ($n in "cover.jpg", "cover.jpeg", "cover.png", "cover.webm") {
-                            Join-Path $src_folder $n | Test-Path
-                        }
+                    $justifying_names = if ($_.Name -eq $ImageName) {
+                        "cover.jpg", "cover.jpeg", "cover.png", "cover.webm"
                     }
                     else {
-                        foreach ($n in $_.Name,
-                               ($_.BaseName + ".ac3"),
-                               ($_.BaseName + ".flac"),
-                               ($_.BaseName + ".webm")) {
-                    (Join-Path $src_folder $n | Test-Path) -And ($null -eq $covets[$n] -Or $covets[$n].treatment -ne "ignore")
+                        $_.Name,
+                        ($_.BaseName + ".ac3"),
+                        ($_.BaseName + ".flac"),
+                        ($_.BaseName + ".webm") |
+                            Where-Object { $null -eq $covets[$_] -Or $covets[$_].treatment -ne "ignore" }
+                        }
+                        # This crazy indentation is courtesy of Visual Studio Code
+                        $justifying_paths = $justifying_names | ForEach-Object { Join-Path $src_folder $_ }
+                        if ((Test-Path -LiteralPath $justifying_paths) -NotContains $true) {
+                            Write-Output $_
                         }
                     }
-                    if ($justifications -NotContains $true) {
-                        Write-Output $_
-                    }
-                }
+            # Visual Studio Code resumes proper indentation
         }
         else {
             Write-Output $_
@@ -250,30 +244,37 @@ function Update-FolderDst {
     }
 }
 
-$mode = [Mode] $args[0]
-switch ($mode) {
-    "clean_up" {
-        # Full recursion in Dst but only reporting progress on the 1st level
-        $diritems = Get-ChildItem $FolderDst -Directory
-        0..($diritems.Count - 1) | ForEach-Object {
-            $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
-            $dir = $diritems[$_]
-            $dst_folder = $FolderDst + (Get-PathSuffix $AbsFolderDst $dir.FullName)
-            Write-Progress -Activity "Looking for spurious files" -Status $dst_folder -PercentComplete $pct
-            Get-ChildItem $dir -Directory -Recurse
-        } | Update-FolderDst | Remove-Item -Confirm
-    }
-    Default {
-        # Full recursion in Src but only reporting progress on the 2nd level
-        Write-Progress -Activity "Looking in folder" -Status $FolderSrc -PercentComplete -1
-        $diritems = Get-ChildItem $FolderSrc -Directory | Get-ChildItem -Directory
-        0..($diritems.Count - 1) | ForEach-Object {
-            $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
-            $dir = $diritems[$_]
-            $src_folder = $FolderSrc + (Get-PathSuffix $AbsFolderSrc $dir.FullName)
-            Write-Progress -Activity "Looking in folder" -Status $src_folder -PercentComplete $pct
-            @($dir) + (Get-ChildItem $dir -Directory -Recurse)
-        } | Update-FolderSrc | Remove-Item -Confirm
+enum Mode {
+    publish_changes
+    register_removes
+    clean_up
+}
+foreach ($arg in $args) {
+    $mode = [Mode] $arg
+    switch ($mode) {
+        "clean_up" {
+            # Full recursion in Dst but only reporting progress on the 1st level
+            $diritems = Get-ChildItem $FolderDst -Directory
+            0..($diritems.Count - 1) | ForEach-Object {
+                $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
+                $dir = $diritems[$_]
+                $dst_folder = $FolderDst + (Get-PathSuffix $AbsFolderDst $dir.FullName)
+                Write-Progress -Activity "Looking for spurious files" -Status $dst_folder -PercentComplete $pct
+                Get-ChildItem $dir -Directory -Recurse
+            } | Update-FolderDst | Remove-Item -Confirm
+        }
+        Default {
+            # Full recursion in Src but only reporting progress on the 2nd level
+            Write-Progress -Activity "Looking in folder" -Status $FolderSrc -PercentComplete -1
+            $diritems = Get-ChildItem $FolderSrc -Directory | Get-ChildItem -Directory
+            0..($diritems.Count - 1) | ForEach-Object {
+                $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
+                $dir = $diritems[$_]
+                $src_folder = $FolderSrc + (Get-PathSuffix $AbsFolderSrc $dir.FullName)
+                Write-Progress -Activity "Looking in folder" -Status $src_folder -PercentComplete $pct
+                @($dir) + (Get-ChildItem $dir -Directory -Recurse)
+            } | Update-FolderSrc | Remove-Item -Confirm
+        }
     }
 }
 
