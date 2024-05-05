@@ -2,7 +2,8 @@
 *.fw
 /litegui
 /changes_generated
-/unpacked*
+/res
+/unpacked_*
 /changes_edited/fonts/msyh.ttf
 /changes_edited/litegui/theme1/adjust/volume_bg.png
 /changes_edited/litegui/theme1/playing/buttom_bg.png
