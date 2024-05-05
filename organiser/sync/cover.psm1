@@ -2,7 +2,7 @@ New-Variable -Option Constant ImageName -Value "folder.jpg"
 New-Variable -Option Constant ImageQuality -Value 95
 New-Variable -Option Constant ImageWidth -Value 320
 New-Variable -Option Constant ImageHeight -Value 240
-New-Variable -Option Constant InsetHeight -Value 208
+New-Variable -Option Constant InsetHeight -Value 224
 
 Add-Type -AssemblyName System.Drawing
 New-Variable -Option Constant jpegCodec -Value ([Drawing.Imaging.ImageCodecInfo]::GetImageEncoders().Where{ $_.FormatDescription -EQ "JPEG" }[0])
@@ -33,7 +33,7 @@ function Convert-Cover {
     }
     $InsetWidth = $SrcImage.Width / $SrcImage.Height * $InsetHeight
     $InsetX = ($ImageWidth - $InsetWidth) / 2
-    $InsetY = ($ImageHeight - $InsetHeight) / 2
+    $InsetY = 0 # ($ImageHeight - $InsetHeight) / 2
 
     $DstImage = [Drawing.Bitmap]::new($ImageWidth, $ImageHeight)
     $Inset = [Drawing.Rectangle]::new($InsetX, $InsetY, $InsetWidth, $InsetHeight)
