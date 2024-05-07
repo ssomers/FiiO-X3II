@@ -43,30 +43,13 @@ These Powershell scripts set up and maintain a parallel directory tree `X3` with
 `sync-changes.ps1` initiates and incrementally updates whenever things are added to the source tree. You then sync the desintation tree with the player. If you delete a track on the player, and sync back with the destintation folder, `sync-removes.ps1` records the removal in a covet.txt file.
 If you delete or rename a file in the soruce, or mark to exclude it in a covet.txt file, `sync-drops.ps1` cleans up the `X3` directory.
 
-## Shaping album art: fiio_cover_to_folder
+## Shaping album art
 
 The player stretches original, typically square, cover art in a way that doesn't respect aspect ratio and interferes with displayed information.
-So we want to inset the cover inside a black border with the player's display dimensions (320×240 pixels).
-
-Organizer does this (in Powershell) but here is also a version written in Go.
+So we inset the cover inside a black border with the player's display dimensions (320×240 pixels).
 
 Operation:
 
-* The scripts pick up album art from cover.jpg or cover.png files. To extract these from the embedded art in audio files, for instance in [Mp3tag](http://www.mp3tag.de/en/) by applying an action group defined with these actions:
+* The script picks up album art from cover.jpg, cover.png or cover.webm files. To extract these from the embedded art in audio files, for instance in [Mp3tag](http://www.mp3tag.de/en/) by applying an action group defined with these actions:
  * Export cover to file "cover" (without enabling Export duplicate covers)
  * Remove fields "PICTURE"
-
-To run the Go version:
-
-* Download and install Go from https://golang.org/dl/
-* On the command line:
-
-    cd go_cover_to_folder
-    go mod tidy
-    go run fiio_cover_to_folder.go
-
-* Or to build once, so you can copy the program to another system and run it without the Go environment:
-
-    go build -ldflags -s fiio_cover_to_folder.go
-    
-* On Windows, launch a [wrapper](fiio_cover_to_folder.cmd) to avoid the command line and keep the console window open
