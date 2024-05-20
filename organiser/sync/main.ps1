@@ -13,7 +13,7 @@ New-Variable -Option Constant AbsFolderDst -Value (Resolve-Path -LiteralPath $Fo
 New-Variable -Option Constant FfmpegQuality -Value 7
 New-Variable -Option Constant FfmpegJobs -Value ([Environment]::ProcessorCount - 1)
 New-Variable -Option Constant FfmpegDate_hdcd -Value ([datetime]"2023-03-03")
-New-Variable -Option Constant FfmpegDate_bass -Value ([datetime]"2023-10-21")
+New-Variable -Option Constant FfmpegDate_bass -Value ([datetime]"2024-05-20")
 New-Variable -Option Constant FfmpegDate_by_mix -Value @{
     [ChannelMix] "mix_xfeed" = [datetime]"2023-04-20"
     [ChannelMix] "mix_mono"  = [datetime]"2023-03-03"
@@ -78,7 +78,7 @@ function Update-FileFromSrc {
                     "mix_mono" { $ffmpeg_arglist += "-ac", 1 }
                 }
                 if ($covet.bass) {
-                    $filters += "bass=gain=5"
+                    $filters += "bass=gain=9"
                 }
                 $filters += "aformat=sample_rates=48000|44100|32000|24000|22050|16000|12000|11025|8000|7350"
                 $filters += "volume=replaygain=album"
@@ -118,10 +118,10 @@ function Update-FolderSrc {
         $private:dst_folder_abs = $AbsFolderDst + $suffix
 
         $private:covet_path = Join-Path $src_folder "covet.txt"
-        $private:covets = Get-Covets $covet_path
+        $private:covets = [Covets]::Read($covet_path)
         if ($null -ne $covets) {
             $private:names_unused = [Collections.Generic.List[string]]::new()
-            $covets.Keys | ForEach-Object { $names_unused.Add($_) }
+            $covets.per_name.Keys | ForEach-Object { $names_unused.Add($_) }
             $private:src_count = 0
             $private:dst_count = 0
             $private:covet_changes = 0
@@ -133,14 +133,11 @@ function Update-FolderSrc {
                     $private:src_basename = $_.BaseName
                     $private:src_LastWriteTime = $_.LastWriteTime
                     [void] $names_unused.Remove($src_name)
-                    $private:covet = $covets[$src_name]
-                    if (-not $covet) {
-                        $covet = [Covet]::new((Get-DefaultTreatment $src_name))
-                    }
-                    switch ($covet.treatment) {
+                    $private:treatment = Get-DefaultTreatment $src_name
+                    switch ($treatment) {
                         "unknown" { Write-Warning "Unknown $src_path" }
                         "ignore" {}
-                        "cover" { 
+                        "cover" {
                             $private:dst_path = Join-Path $dst_folder $ImageName
                             $private:dst_path_abs = Join-Path $dst_folder_abs $ImageName
                             switch ($mode) {
@@ -155,24 +152,32 @@ function Update-FolderSrc {
                             }
                         }
                         default {
-                            $src_count += 1
-                            $dst_count += 1
+                            $private:covet = $covets.GetCovet($src_name)
+                            if ($null -eq $covet) {
+                                $covet = [Covet]::new($treatment)
+                            }
                             $private:dst_name = switch ($covet.treatment) {
                                 "copy" { $src_name }
                                 "convert" { $src_basename + ".m4a" }
+                                "ignore" { $null }
+                                default { throw }
                             }
-                            $private:dst_path = Join-Path $dst_folder $dst_name
-                            $private:dst_path_abs = Join-Path $dst_folder_abs $dst_name
-                            switch ($mode) {
-                                "publish_changes" {
-                                    Build-Destination $dst_folder
-                                    Update-FileFromSrc $covet $src_path $src_LastWriteTime $dst_path $dst_path_abs
-                                }
-                                "register_removes" {
-                                    if (-Not (Test-Path -LiteralPath $dst_path)) {
-                                        Write-Host "${covet_path}: adding ""$src_name"""
-                                        $covets[$src_name] = [Covet]::new("ignore")
-                                        ++$covet_changes
+                            if ($null -ne $dst_name) {
+                                $src_count += 1
+                                $dst_count += 1
+                                $private:dst_path = Join-Path $dst_folder $dst_name
+                                $private:dst_path_abs = Join-Path $dst_folder_abs $dst_name
+                                switch ($mode) {
+                                    "publish_changes" {
+                                        Build-Destination $dst_folder
+                                        Update-FileFromSrc $covet $src_path $src_LastWriteTime $dst_path $dst_path_abs
+                                    }
+                                    "register_removes" {
+                                        if (-Not (Test-Path -LiteralPath $dst_path)) {
+                                            Write-Host "${covet_path}: adding ""$src_name"""
+                                            $covets.per_name[$src_name] = [Covet]::new("ignore")
+                                            ++$covet_changes
+                                        }
                                     }
                                 }
                             }
@@ -187,7 +192,7 @@ function Update-FolderSrc {
                     }
                     "register_removes" {
                         Write-Host "${covet_path}: removing ""$n"""
-                        if (-Not $covets.Remove($n)) {
+                        if (-Not $covets.per_name.Remove($n)) {
                             throw "Lost covet!"
                         }
                         ++$covet_changes
@@ -195,8 +200,8 @@ function Update-FolderSrc {
                 }
             }
             if ($covet_changes) {
-                if ($covets.Count) {
-                    Set-Covets $covets $covet_path
+                if ($covets.IsUseful()) {
+                    $covets.Write($covet_path)
                 }
                 else {
                     Write-Output $covet_path
@@ -216,7 +221,7 @@ function Update-FolderDst {
         $src_folder = $FolderSrc + $suffix
         if (Test-Path -LiteralPath $src_folder) {
             $covet_path = Join-Path $src_folder "covet.txt"
-            $covets = Get-Covets $covet_path
+            $covets = [Covets]::Read($covet_path)
 
             $diritem.EnumerateFiles() |
                 ForEach-Object {
@@ -227,16 +232,18 @@ function Update-FolderDst {
                         $_.Name,
                         ($_.BaseName + ".ac3"),
                         ($_.BaseName + ".flac"),
-                        ($_.BaseName + ".webm") |
-                            Where-Object { $null -eq $covets[$_] -Or $covets[$_].treatment -ne "ignore" }
-                        }
-                        # This crazy indentation is courtesy of Visual Studio Code
-                        $justifying_paths = $justifying_names | ForEach-Object { Join-Path $src_folder $_ }
-                        if ((Test-Path -LiteralPath $justifying_paths) -NotContains $true) {
-                            Write-Output $_
-                        }
+                        ($_.BaseName + ".webm"),
+                        ($_.BaseName + "*.m4a"),
+                        ($_.BaseName + "*.mp2"),
+                        ($_.BaseName + "*.mp3"),
+                        ($_.BaseName + "*.ogg"),
+                        ($_.BaseName + "*.wma") | Where-Object { $covets.DoesNotExclude($_) }
                     }
-            # Visual Studio Code resumes proper indentation
+                    $justifying_paths = $justifying_names | ForEach-Object { Join-Path $src_folder $_ }
+                    if ((Test-Path -LiteralPath $justifying_paths) -NotContains $true) {
+                        Write-Output $_
+                    }
+                }
         }
         else {
             Write-Output $_

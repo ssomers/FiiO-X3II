@@ -1,11 +1,11 @@
 New-Variable -Option Constant ignore_symbol -Value ([char]"-")
 New-Variable -Option Constant hdcd_symbol -Value ([char]"H")
 New-Variable -Option Constant bass_symbol -Value ([char]"B")
-New-Variable -Option Constant mix_by_symbol -Value @{
-    [char]"X" = [ChannelMix] "mix_xfeed"
-    [char]"|" = [ChannelMix] "mix_mono"
-    [char]"<" = [ChannelMix] "mix_left"
-    [char]">" = [ChannelMix] "mix_right"
+New-Variable -Option Constant mix_symbol -Value @{
+    [ChannelMix]"mix_xfeed" = [char]"X"
+    [ChannelMix]"mix_mono"  = [char]"|"
+    [ChannelMix]"mix_left"  = [char]"<"
+    [ChannelMix]"mix_right" = [char]">"
 }
 
 enum Treatment {
@@ -45,80 +45,115 @@ class Covet {
             ([int]$this.bass -shl 3) -bor
             [int]$this.mix)
     }
-}
 
-function Get-Covets {
-    param (
-        [string] $InPath
-    )
-    $covets = [Collections.Generic.Dictionary[string, Covet]]::new()
-    Get-Content -LiteralPath $InPath -Encoding UTF8 -ErrorAction Ignore |
-    ForEach-Object {
-        $symbols, $name = $_ -split " ", 2
-        if (-Not $name) {
-            Write-Warning "${InPath}: invalid line ""$_"""
-            return $null
-        }
-        if ($covets.ContainsKey($name)) {
-            Write-Warning "${InPath}: multiply defined ""$name"""
-            return $null
-        }
-        if ($symbols -eq $ignore_symbol) {
-            $covet = [Covet]::new("ignore")
-        }
-        else {
-            $covet = [Covet]::new("convert")
-            foreach ($s in $symbols.GetEnumerator()) {
-                $covet.hdcd = ($s -eq $hdcd_symbol)
-                $covet.bass = ($s -eq $bass_symbol)
-                $mix = $mix_by_symbol[$s]
-                if ($null -eq $mix) {
-                    if (-not $covet.hdcd -and -not $covet.bass) {
-                        Write-Error "${InPath}: invalid symbol ""$s"" for name ""$name"""
-                        return $null
-                    }
-                    $mix = "mix_passthrough"
-                }
-                $covet.mix = $mix
-            }
-        }
-        $covets[$name] = $covet
-    }
-    return $covets
-}
-
-function Set-Covets {
-    param (
-        [Collections.Generic.Dictionary[string, Covet]] $covets,
-        [string] $OutPath
-    )
-    $covets.GetEnumerator() | Sort-Object -Property Key | ForEach-Object {
-        $name, $covet = $_.Key, $_.Value
-        $symbols = ""
-        switch ($covet.treatment) {
+    [string] GetSymbols() {
+        $private:symbols = ""
+        switch ($this.treatment) {
             "ignore" {
-                $symbols += $ignore_symbol
+                $symbols += $script:ignore_symbol
             }
             "convert" {
-                if ($covet.hdcd) {
-                    $symbols += $hdcd_symbol
+                if ($this.hdcd) {
+                    $symbols += $script:hdcd_symbol
                 }
-                foreach ($p in $mix_by_symbol.GetEnumerator()) {
-                    ([string] $symbol, [ChannelMix] $c) = ($p.Key, $p.Value)
-                    if ($covet.mix -eq $c) {
-                        $symbols += $symbol
-                    }
+                if ($this.mix -ne "mix_passthrough") {
+                    $symbols += $script:mix_symbol[$this.mix]
                 }
-                if ($covet.bass) {
-                    $symbols += $bass_symbol
+                if ($this.bass) {
+                    $symbols += $script:bass_symbol
                 }
             }
         }
-        if ($symbols -eq "") {
-            Write-Error "${InPath}: unknown treatment for name ""$name"""
+        return $symbols
+    }
+}
+
+class Covets {
+    [Covet]$default
+    [Collections.Generic.Dictionary[string, Covet]] $per_name
+
+    Covets() {
+        $this.default = $null
+        $this.per_name = [Collections.Generic.Dictionary[string, Covet]]::new()
+    }
+
+    [bool] IsUseful() {
+        return $null -ne $this.default -Or $this.per_name.Count
+    }
+
+    [bool] DoesNotExclude([string]$name) {
+        $private:covet = $this.per_name[$name]
+        return $null -eq $covet -Or $covet.treatment -ne "ignore"
+    }
+
+    [Covet] GetCovet([string]$name) {
+        $private:covet = $this.per_name[$name]
+        if ($null -ne $covet) {
+            return $covet
         }
-        Write-Output "$symbols $name"
-    } | Set-Content -LiteralPath $OutPath -Encoding UTF8
+        else {
+            return $this.default
+        }
+    }
+
+    static [Covets] Read([string] $InPath) {
+        $private:covets = [Covets]::new()
+        Get-Content -LiteralPath $InPath -Encoding UTF8 -ErrorAction Ignore |
+            ForEach-Object {
+                $private:symbols, $private:name = $_ -split " ", 2
+                $private:covet = $covets.default
+                if ($null -eq $covet) {
+                    $covet = [Covet]::new("convert")
+                }
+                foreach ($s in $symbols.GetEnumerator()) {
+                    switch ($s) {
+                        $script:ignore_symbol { $covet.treatment = "ignore" }
+                        $script:hdcd_symbol { $covet.hdcd = $true }
+                        $script:bass_symbol { $covet.bass = $true }
+                        $script:mix_symbol[[ChannelMix]"mix_xfeed"] { $covet.mix = "mix_xfeed" }
+                        $script:mix_symbol[[ChannelMix]"mix_mono"] { $covet.mix = "mix_mono" }
+                        $script:mix_symbol[[ChannelMix]"mix_left"] { $covet.mix = "mix_left" }
+                        $script:mix_symbol[[ChannelMix]"mix_right"] { $covet.mix = "mix_right" }
+                        default {
+                            Write-Error "${InPath}: invalid symbol ""$s"" for name ""$name"""
+                            return $null
+                        }
+                    }
+                }
+                if ($name) {
+                    if ($covets.per_name.ContainsKey($name)) {
+                        Write-Warning "${InPath}: multiply defined ""$name"""
+                        return $null
+                    }
+                    $covets.per_name[$name] = $covet
+                }
+                else {
+                    if ($null -ne $covets.default) {
+                        Write-Warning "${InPath}: multiply defined default ""$_"""
+                        return $null
+                    }
+                    $covets.default = $covet
+                }
+            }
+        return $covets
+    }
+
+    [void] Write([string] $OutPath) {
+        {
+            if ($null -ne $this.default) {
+                Write-Ouput "", $this.Default
+            }
+            $this.per_name.GetEnumerator() | Sort-Object -Property Key
+        } |
+            ForEach-Object {
+                $private:name, $private:covet = $_.Key, $_.Value
+                $private:symbols = $covet.GetSymbols()
+                if ($symbols -eq "") {
+                    throw "Unknown symbols for registered covet"
+                }
+                Write-Output "$symbols $name"
+            } | Set-Content -LiteralPath $OutPath -Encoding UTF8
+    }
 }
 
 function Get-DefaultTreatment {
@@ -126,7 +161,7 @@ function Get-DefaultTreatment {
         [string] $Filename
     )
 
-    [Treatment]$treatment = switch -Wildcard ($Filename) {
+    [Treatment]$private:treatment = switch -Wildcard ($Filename) {
         "*.old.*" { "ignore"; break }
         "*.raw.*" { "ignore"; break }
         "*.iso" { "ignore" }
