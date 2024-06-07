@@ -101,6 +101,10 @@ class Covets {
         Get-Content -LiteralPath $InPath -Encoding UTF8 -ErrorAction Ignore |
             ForEach-Object {
                 $private:symbols, $private:name = $_ -split " ", 2
+                if (-not $symbols) {
+                    Write-Warning "${InPath}: missing symbols for name ""$name"""
+                    break
+                }
                 $private:covet = $covets.default
                 if ($null -eq $covet) {
                     $covet = [Covet]::new("convert")
@@ -115,8 +119,8 @@ class Covets {
                         $script:mix_symbol[[ChannelMix]"mix_left"] { $covet.mix = "mix_left" }
                         $script:mix_symbol[[ChannelMix]"mix_right"] { $covet.mix = "mix_right" }
                         default {
-                            Write-Error "${InPath}: invalid symbol ""$s"" for name ""$name"""
-                            return $null
+                            Write-Warning "${InPath}: invalid symbol ""$s"" for name ""$name"""
+                            break
                         }
                     }
                 }
@@ -138,21 +142,20 @@ class Covets {
         return $covets
     }
 
-    [void] Write([string] $OutPath) {
-        {
+    [void] WriteTo([string] $OutPath) {
+        Invoke-Command -NoNewScope {
             if ($null -ne $this.default) {
-                Write-Ouput "", $this.Default
+                [Collections.Generic.KeyValuePair[string, Covet]]::new("", $this.Default)
             }
             $this.per_name.GetEnumerator() | Sort-Object -Property Key
-        } |
-            ForEach-Object {
-                $private:name, $private:covet = $_.Key, $_.Value
-                $private:symbols = $covet.GetSymbols()
-                if ($symbols -eq "") {
-                    throw "Unknown symbols for registered covet"
-                }
-                Write-Output "$symbols $name"
-            } | Set-Content -LiteralPath $OutPath -Encoding UTF8
+        } | ForEach-Object {
+            $private:name, $private:covet = $_.Key, $_.Value
+            $private:symbols = $covet.GetSymbols()
+            if ($symbols -eq "") {
+                throw "Unknown symbols for registered covet"
+            }
+            Write-Output "$symbols $name"
+        } | Set-Content -LiteralPath $OutPath -Encoding UTF8
     }
 }
 

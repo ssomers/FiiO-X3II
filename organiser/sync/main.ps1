@@ -13,7 +13,7 @@ New-Variable -Option Constant AbsFolderDst -Value (Resolve-Path -LiteralPath $Fo
 New-Variable -Option Constant FfmpegQuality -Value 7
 New-Variable -Option Constant FfmpegJobs -Value ([Environment]::ProcessorCount - 1)
 New-Variable -Option Constant FfmpegDate_hdcd -Value ([datetime]"2023-03-03")
-New-Variable -Option Constant FfmpegDate_bass -Value ([datetime]"2024-05-20")
+New-Variable -Option Constant FfmpegDate_bass -Value ([datetime]"2024-05-21")
 New-Variable -Option Constant FfmpegDate_by_mix -Value @{
     [ChannelMix] "mix_xfeed" = [datetime]"2023-04-20"
     [ChannelMix] "mix_mono"  = [datetime]"2023-03-03"
@@ -201,7 +201,7 @@ function Update-FolderSrc {
             }
             if ($covet_changes) {
                 if ($covets.IsUseful()) {
-                    $covets.Write($covet_path)
+                    $covets.WriteTo($covet_path)
                 }
                 else {
                     Write-Output $covet_path
