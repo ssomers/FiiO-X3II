@@ -51,5 +51,5 @@ So we inset the cover inside a black border with the player's display dimensions
 Operation:
 
 * The script picks up album art from cover.jpg, cover.png or cover.webm files. To extract these from the embedded art in audio files, for instance in [Mp3tag](http://www.mp3tag.de/en/) by applying an action group defined with these actions:
- * Export cover to file "cover" (without enabling Export duplicate covers)
- * Remove fields "PICTURE"
+  * Export cover to file "cover" (without enabling Export duplicate covers)
+  * Remove fields "PICTURE"
