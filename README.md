@@ -1,4 +1,4 @@
-Stuff to create a customized firmware for the FiiO X3II Digital Audio Player, and to shape album art for the same device. Binaries (somewhat unconventionally) published as releases.
+Stuff to create a customized firmware for the FiiO X3II Digital Audio Player, and to shape album art for the same device. Binaries published as releases.
 
 ## Customized firmware
 The last regular firmware version of the FiiO X3II digital audio player is [2.0 at FiiO's site](hhttps://forum.fiio.com/firmwareDown.do). An interesting previous version was 1.4, the last with OTG support (adding storage on the USB port, which is not officially supported but apparently works for most - I never tried myself).
