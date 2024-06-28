@@ -37,6 +37,7 @@ function Update-FileFromSrc {
         [Covet] $covet,
         [string] $src_path,
         [DateTime] $src_LastWriteTime,
+        [string] $dst_name,
         [string] $dst_path,
         [string] $dst_path_abs
     )
@@ -50,12 +51,16 @@ function Update-FileFromSrc {
             elseif ((Get-FileID $src_path) -eq (Get-FileID $dst_path)) {
                 #Write-Host "Keeping $dst_path"
             }
-            elseif ((Get-FileHash $src_path).Hash -eq (Get-FileHash $dst_path).Hash) {
-                Write-Host "Re-linking $dst_path"
-                New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) -Force | Out-Null
-            }
             else {
-                Write-Warning "Keeping unhinged $dst_path"
+                if ((Get-FileHash $src_path).Hash -ne (Get-FileHash $dst_path).Hash) {
+                    Rename-Item $dst_path "$dst_name.prev"
+                    Write-Output "$dst_path.prev"
+                    Write-Host "Linking changed $dst_path"
+                }
+                else {
+                    Write-Host "Re-linking $dst_path"
+                }
+                New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) -Force | Out-Null
             }
         }
         "convert" {
@@ -170,7 +175,7 @@ function Update-FolderSrc {
                                 switch ($mode) {
                                     "publish_changes" {
                                         Build-Destination $dst_folder
-                                        Update-FileFromSrc $covet $src_path $src_LastWriteTime $dst_path $dst_path_abs
+                                        Update-FileFromSrc $covet $src_path $src_LastWriteTime $dst_name $dst_path $dst_path_abs
                                     }
                                     "register_removes" {
                                         if (-Not (Test-Path -LiteralPath $dst_path)) {
