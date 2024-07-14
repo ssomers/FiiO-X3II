@@ -27,13 +27,25 @@ enum ChannelMix {
 class Covet {
     [Treatment]$treatment
     [Boolean]$hdcd
-    [ChannelMix]$mix
     [Boolean]$bass
+    [ChannelMix]$mix
     Covet([Treatment]$treatment) {
         $this.treatment = $treatment
         $this.hdcd = $false
         $this.bass = $false
         $this.mix = "mix_passthrough"
+    }
+
+    Covet([Covet]$source, [Treatment]$defaultTreatment) {
+        if ($null -eq $source) {
+            $this.treatment = $defaultTreatment
+        }
+        else {
+            $this.treatment = $source.treatment
+            $this.hdcd = $source.hdcd
+            $this.bass = $source.bass
+            $this.mix = $source.mix
+        }
     }
 
     [char] GetConvChar() {
@@ -105,10 +117,7 @@ class Covets {
                     Write-Warning "${InPath}: missing symbols for name ""$name"""
                     break
                 }
-                $private:covet = $covets.default
-                if ($null -eq $covet) {
-                    $covet = [Covet]::new("convert")
-                }
+                $private:covet = [Covet]::new($covets.default, [Treatment]"convert")
                 foreach ($s in $symbols.GetEnumerator()) {
                     switch ($s) {
                         $script:ignore_symbol { $covet.treatment = "ignore" }
