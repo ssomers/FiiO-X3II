@@ -231,7 +231,7 @@ function Update-FolderDst {
             $diritem.EnumerateFiles() |
                 ForEach-Object {
                     $justifying_names = if ($_.Name -eq $ImageName) {
-                        "cover.jpg", "cover.jpeg", "cover.png", "cover.webm"
+                        "cover.jpg", "cover.jpeg", "cover.png", "cover.webp"
                     }
                     else {
                         $_.Name,

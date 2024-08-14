@@ -24,8 +24,13 @@ function Convert-Cover {
         [string] $DstPath,
         [string] $DstPathAbs
     )
+    $ActualSrcPath = $SrcPath
+    if ($SrcPath.EndsWith(".webp")) {
+        $ActualSrcPath = "$SrcPath.png"
+        & "c:\Programs\libwebp\bin\dwebp.exe" -o "$ActualSrcPath" -- "$SrcPath" 2>nul
+    }
     try {
-        $SrcImage = [Drawing.Image]::FromFile($SrcPath)
+        $SrcImage = [Drawing.Image]::FromFile($ActualSrcPath)
     }
     catch {
         Write-Warning "Cannot read ${SrcPath}: $($_.FullyQualifiedErrorId)"
@@ -39,6 +44,9 @@ function Convert-Cover {
     $Inset = [Drawing.Rectangle]::new($InsetX, $InsetY, $InsetWidth, $InsetHeight)
     [Drawing.Graphics]::FromImage($DstImage).DrawImage($SrcImage, $Inset)
     $srcImage.Dispose()
+    if ($ActualSrcPath -ne $SrcPath) {
+        Remove-Item $ActualSrcPath
+    }
 
     $DstStream = [IO.MemoryStream]::new(48kb)
     $DstImage.Save($DstStream, $jpegCodec, $jpegParams)

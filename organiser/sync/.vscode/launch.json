@@ -1,0 +1,61 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "publish_changes",
+            "type": "PowerShell",
+            "request": "launch",
+            "cwd": "${workspaceRoot}\\..",
+            "script": "${workspaceRoot}\\main.ps1",
+            "args": [
+                "publish_changes"
+            ]
+        },
+        {
+            "name": "register_removes",
+            "type": "PowerShell",
+            "request": "launch",
+            "cwd": "${workspaceRoot}\\..",
+            "script": "${workspaceRoot}\\main.ps1",
+            "args": [
+                "register_removes"
+            ]
+        },
+        {
+            "name": "clean up",
+            "type": "PowerShell",
+            "request": "launch",
+            "cwd": "${workspaceRoot}\\..",
+            "script": "${workspaceRoot}\\main.ps1",
+            "args": [
+                "clean_up"
+            ]
+        },
+        {
+            "name": "load",
+            "type": "PowerShell",
+            "request": "launch",
+            "cwd": "${workspaceRoot}\\..",
+            "script": "${workspaceRoot}\\main.ps1",
+            "args": []
+        },
+        {
+            "name": "test",
+            "type": "PowerShell",
+            "request": "launch",
+            "script": "${file}",
+            "args": []
+        },
+        {
+            "name": "focus",
+            "type": "PowerShell",
+            "request": "launch",
+            "cwd": "${workspaceRoot}\\..",
+            "script": "${workspaceRoot}\\focus.ps1",
+            "args": []
+        }
+    ]
+}
