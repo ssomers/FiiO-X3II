@@ -1,5 +1,4 @@
-*.exe
-*.fw
+/X3II.fw
 /litegui
 /changes_generated
 /res
