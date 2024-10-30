@@ -230,23 +230,28 @@ function Update-FolderDst {
 
             $diritem.EnumerateFiles() |
                 ForEach-Object {
-                    $justifying_names = if ($_.Name -eq $ImageName) {
-                        "cover.jpg", "cover.jpeg", "cover.png", "cover.webp"
+                    if ($_.Name.StartsWith("cover.")) {
+                        Write-Output $_
                     }
                     else {
-                        $_.Name,
-                        ($_.BaseName + ".ac3"),
-                        ($_.BaseName + ".flac"),
-                        ($_.BaseName + ".webm"),
-                        ($_.BaseName + "*.m4a"),
-                        ($_.BaseName + "*.mp2"),
-                        ($_.BaseName + "*.mp3"),
-                        ($_.BaseName + "*.ogg"),
-                        ($_.BaseName + "*.wma") | Where-Object { $covets.DoesNotExclude($_) }
-                    }
-                    $justifying_paths = $justifying_names | ForEach-Object { Join-Path $src_folder $_ }
-                    if ((Test-Path -LiteralPath $justifying_paths) -NotContains $true) {
-                        Write-Output $_
+                        $justifying_names = if ($_.Name -eq $ImageName) {
+                            "cover.jpg", "cover.jpeg", "cover.png", "cover.webp"
+                        }
+                        else {
+                            $_.Name,
+                            ($_.BaseName + ".ac3"),
+                            ($_.BaseName + ".flac"),
+                            ($_.BaseName + ".webm"),
+                            ($_.BaseName + "*.m4a"),
+                            ($_.BaseName + "*.mp2"),
+                            ($_.BaseName + "*.mp3"),
+                            ($_.BaseName + "*.ogg"),
+                            ($_.BaseName + "*.wma") | Where-Object { $covets.DoesNotExclude($_) }
+                        }
+                        $justifying_paths = $justifying_names | ForEach-Object { Join-Path $src_folder $_ }
+                        if ((Test-Path -LiteralPath $justifying_paths) -NotContains $true) {
+                            Write-Output $_
+                        }
                     }
                 }
         }

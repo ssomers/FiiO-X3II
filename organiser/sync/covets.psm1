@@ -176,12 +176,13 @@ function Get-DefaultTreatment {
     [Treatment]$private:treatment = switch -Wildcard ($Filename) {
         "*.old.*" { "ignore"; break }
         "*.raw.*" { "ignore"; break }
+        "cover.*" { "cover"; break }
         "*.iso" { "ignore" }
         "*.llc" { "ignore" }
         "*.mp4" { "ignore" }
         "*.pdf" { "ignore" }
         "*.txt" { "ignore" }
-        "cover.*" { "cover" }
+        "*.jpg" { "ignore" }
         "*.m4a" { "copy" }
         "*.mp2" { "copy" }
         "*.mp3" { "copy" }
