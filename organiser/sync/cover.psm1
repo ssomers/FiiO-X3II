@@ -1,7 +1,7 @@
 New-Variable -Option Constant ImageName -Value "folder.jpg"
 New-Variable -Option Constant ImageQuality -Value 95
 New-Variable -Option Constant ImageWidth -Value 320
-New-Variable -Option Constant ImageHeight -Value 240
+New-Variable -Option Constant ImageHeight -Value 224
 New-Variable -Option Constant InsetHeight -Value 224
 
 Add-Type -AssemblyName System.Drawing
