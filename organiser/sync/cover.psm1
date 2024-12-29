@@ -9,15 +9,6 @@ New-Variable -Option Constant jpegCodec -Value ([Drawing.Imaging.ImageCodecInfo]
 New-Variable -Option Constant jpegParams -Value ([Drawing.Imaging.EncoderParameters]::new())
 $jpegParams.Param[0] = [Drawing.Imaging.EncoderParameter]::new([Drawing.Imaging.Encoder]::Quality, $ImageQuality)
 
-Add-Type -TypeDefinition @"
-    using System;
-    using System.Runtime.InteropServices;
-    public class msvcrt {
-        [DllImport("msvcrt.dll", CallingConvention=CallingConvention.Cdecl)]
-        public static extern int memcmp(byte[] p1, byte[] p2, long count);
-    }
-"@
-
 function Convert-Cover {
     param (
         [string] $SrcPath,

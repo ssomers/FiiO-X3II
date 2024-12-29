@@ -1,9 +1,10 @@
+using module .\sys.psm1
 using module .\cover.psm1
 using module .\covets.psm1
-using module .\io.psm1
+using module .\IoUtils.psm1
 Set-StrictMode -Version latest
 
-$ErrorActionPreference = "Inquire"
+$ErrorActionPreference = "Inquire" # "Break"
 
 New-Variable -Option Constant FolderSrc -Value "src"
 New-Variable -Option Constant FolderDst -Value "X3"
@@ -48,7 +49,7 @@ function Update-FileFromSrc {
                 Write-Host "Linking $dst_path"
                 New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
             }
-            elseif ((Get-FileID $src_path) -eq (Get-FileID $dst_path)) {
+            elseif ([IoUtils]::IsSameFile($src_path, $dst_path)) {
                 #Write-Host "Keeping $dst_path"
             }
             else {
@@ -78,8 +79,8 @@ function Update-FileFromSrc {
                 }
                 switch ($covet.mix) {
                     "mix_xfeed" { $filters += "crossfeed=level_in=1:strength=.5" }
-                    "mix_left" { $filters += "pan=mono| c0=FL" }
-                    "mix_rght" { $filters += "pan=mono| c0=FR" }
+                    "mix_left" { $filters += "pan=mono|c0=FL" }
+                    "mix_rght" { $filters += "pan=mono|c0=FR" }
                     "mix_mono" { $ffmpeg_arglist += "-ac", 1 }
                 }
                 if ($covet.bass) {
@@ -117,7 +118,7 @@ function Update-FileFromSrc {
 function Update-FolderSrc {
     process {
         $private:diritem = [IO.DirectoryInfo] $_
-        $private:suffix = Get-PathSuffix $AbsFolderSrc $diritem.FullName
+        $private:suffix = [IoUtils]::GetPathSuffix($AbsFolderSrc, $diritem)
         $private:src_folder = $diritem.FullName
         $private:dst_folder = $FolderDst + $suffix
         $private:dst_folder_abs = $AbsFolderDst + $suffix
@@ -222,7 +223,7 @@ function Update-FolderSrc {
 function Update-FolderDst {
     process {
         $diritem = [IO.DirectoryInfo] $_
-        $suffix = Get-PathSuffix $AbsFolderDst $diritem.FullName
+        $suffix = [IoUtils]::GetPathSuffix($AbsFolderDst, $diritem)
         $src_folder = $FolderSrc + $suffix
         if (Test-Path -LiteralPath $src_folder) {
             $covet_path = Join-Path $src_folder "covet.txt"
@@ -275,7 +276,7 @@ foreach ($arg in $args) {
             0..($diritems.Count - 1) | ForEach-Object {
                 $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
                 $dir = $diritems[$_]
-                $dst_folder = $FolderDst + (Get-PathSuffix $AbsFolderDst $dir.FullName)
+                $dst_folder = $FolderDst + [IoUtils]::GetPathSuffix($AbsFolderDst, $dir)
                 Write-Progress -Activity "Looking for spurious files" -Status $dst_folder -PercentComplete $pct
                 Get-ChildItem $dir -Directory -Recurse
             } | Update-FolderDst | Remove-Item -Confirm
@@ -287,7 +288,7 @@ foreach ($arg in $args) {
             0..($diritems.Count - 1) | ForEach-Object {
                 $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
                 $dir = $diritems[$_]
-                $src_folder = $FolderSrc + (Get-PathSuffix $AbsFolderSrc $dir.FullName)
+                $src_folder = $FolderSrc + [IoUtils]::GetPathSuffix($AbsFolderSrc, $dir)
                 Write-Progress -Activity "Looking in folder" -Status $src_folder -PercentComplete $pct
                 @($dir) + (Get-ChildItem $dir -Directory -Recurse)
             } | Update-FolderSrc | Remove-Item -Confirm
