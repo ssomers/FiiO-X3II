@@ -27,7 +27,7 @@ function Build-Destination {
         [string] $dst_folder
     )
 
-    if (-Not (Test-Path -LiteralPath $dst_folder)) {
+    if (-not (Test-Path -LiteralPath $dst_folder)) {
         Write-Host "Creating $dst_folder"
         New-Item -ItemType "Directory" -Path $dst_folder | Out-Null
     }
@@ -45,7 +45,7 @@ function Update-FileFromSrc {
 
     switch ($covet.treatment) {
         "copy" {
-            if (-Not (Test-Path -LiteralPath $dst_path)) {
+            if (-not (Test-Path -LiteralPath $dst_path)) {
                 Write-Host "Linking $dst_path"
                 New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
             }
@@ -69,7 +69,7 @@ function Update-FileFromSrc {
             if ($covet.hdcd) { $times += $FfmpegDate_hdcd }
             if ($covet.bass) { $times += $FfmpegDate_bass }
             $private:dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
-            if ($null -eq $dst -Or -Not $dst.Length -Or ($times -gt $dst.LastWriteTime).Count) {
+            if ($null -eq $dst -or -not $dst.Length -or ($times -gt $dst.LastWriteTime).Count) {
                 $private:ffmpeg_arglist = [Collections.Generic.List[string]]::new()
                 $private:filters = [Collections.Generic.List[string]]::new()
                 $ffmpeg_arglist += "-loglevel", "warning"
@@ -86,7 +86,7 @@ function Update-FileFromSrc {
                 if ($covet.bass) {
                     $filters += "bass=gain=9"
                 }
-                $filters += "aformat=sample_rates=48000|44100|32000|24000|22050|16000|12000|11025|8000|7350"
+                $filters += "aformat=sample_rates=88200|48000|44100|32000|24000|22050|16000|12000|11025|8000|7350"
                 $filters += "volume=replaygain=album"
                 $ffmpeg_arglist += "-filter:a", "`"$($filters -join ",")`""
                 $ffmpeg_arglist += "-q:a", $FfmpegQuality
@@ -105,7 +105,7 @@ function Update-FileFromSrc {
                     $p.PriorityClass = "BelowNormal"
                     $p.WaitForExit()
                     $private:dst = Get-Item -LiteralPath $using:dst_path_abs -ErrorAction:SilentlyContinue
-                    if ($null -eq $dst -Or -Not $dst.Length) {
+                    if ($null -eq $dst -or -not $dst.Length) {
                         Remove-Item -LiteralPath $using:dst_path_abs
                         throw "Failed to create $using:dst_path_abs { ffmpeg $using:ffmpeg_arglist }"
                     }
@@ -179,7 +179,7 @@ function Update-FolderSrc {
                                         Update-FileFromSrc $covet $src_path $src_LastWriteTime $dst_name $dst_path $dst_path_abs
                                     }
                                     "register_removes" {
-                                        if (-Not (Test-Path -LiteralPath $dst_path)) {
+                                        if (-not (Test-Path -LiteralPath $dst_path)) {
                                             Write-Host "${covet_path}: adding ""$src_name"""
                                             $covets.per_name[$src_name] = [Covet]::new("ignore")
                                             ++$covet_changes
@@ -191,14 +191,14 @@ function Update-FolderSrc {
                     }
                     Get-Job | Receive-Job | Write-Error
                 }
-            ForEach ($n in $names_unused) {
+            foreach ($n in $names_unused) {
                 switch ($mode) {
                     "publish_changes" {
                         Write-Warning "${covet_path}: unused item ""$n"""
                     }
                     "register_removes" {
                         Write-Host "${covet_path}: removing ""$n"""
-                        if (-Not $covets.per_name.Remove($n)) {
+                        if (-not $covets.per_name.Remove($n)) {
                             throw "Lost covet!"
                         }
                         ++$covet_changes
@@ -213,7 +213,7 @@ function Update-FolderSrc {
                     Write-Output $covet_path
                 }
             }
-            if ($src_count -And -Not $dst_count) {
+            if ($src_count -and -not $dst_count) {
                 Write-Warning "Unused folder $src_folder"
             }
         }
@@ -243,14 +243,14 @@ function Update-FolderDst {
                             ($_.BaseName + ".ac3"),
                             ($_.BaseName + ".flac"),
                             ($_.BaseName + ".webm"),
-                            ($_.BaseName + "*.m4a"),
-                            ($_.BaseName + "*.mp2"),
-                            ($_.BaseName + "*.mp3"),
-                            ($_.BaseName + "*.ogg"),
-                            ($_.BaseName + "*.wma") | Where-Object { $covets.DoesNotExclude($_) }
+                            ($_.BaseName + ".m4a"),
+                            ($_.BaseName + ".mp2"),
+                            ($_.BaseName + ".mp3"),
+                            ($_.BaseName + ".ogg"),
+                            ($_.BaseName + ".wma") | Where-Object { $covets.DoesNotExclude($_) }
                         }
                         $justifying_paths = $justifying_names | ForEach-Object { Join-Path $src_folder $_ }
-                        if ((Test-Path -LiteralPath $justifying_paths) -NotContains $true) {
+                        if ((Test-Path -LiteralPath $justifying_paths) -notcontains $true) {
                             Write-Output $_
                         }
                     }
@@ -269,7 +269,7 @@ enum Mode {
 }
 foreach ($arg in $args) {
     $mode = [Mode] $arg
-    switch ($mode) {
+    $doomed = switch ($mode) {
         "clean_up" {
             # Full recursion in Dst but only reporting progress on the 1st level
             $diritems = Get-ChildItem $FolderDst -Directory
@@ -279,20 +279,27 @@ foreach ($arg in $args) {
                 $dst_folder = $FolderDst + [IoUtils]::GetPathSuffix($AbsFolderDst, $dir)
                 Write-Progress -Activity "Looking for spurious files" -Status $dst_folder -PercentComplete $pct
                 Get-ChildItem $dir -Directory -Recurse
-            } | Update-FolderDst | Remove-Item -Confirm
+            } | Update-FolderDst
         }
-        Default {
+        default {
             # Full recursion in Src but only reporting progress on the 2nd level
             Write-Progress -Activity "Looking in folder" -Status $FolderSrc -PercentComplete -1
-            $diritems = Get-ChildItem $FolderSrc -Directory | Get-ChildItem -Directory
+            $diritems = Get-ChildItem $FolderSrc -Directory
+            | Get-ChildItem -Directory
             0..($diritems.Count - 1) | ForEach-Object {
                 $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
                 $dir = $diritems[$_]
                 $src_folder = $FolderSrc + [IoUtils]::GetPathSuffix($AbsFolderSrc, $dir)
                 Write-Progress -Activity "Looking in folder" -Status $src_folder -PercentComplete $pct
                 @($dir) + (Get-ChildItem $dir -Directory -Recurse)
-            } | Update-FolderSrc | Remove-Item -Confirm
+            } | Update-FolderSrc
         }
+    }
+    # Remove-Item does not delete streamed IO.FileInfo instances if their path contains
+    # wildcard characters.
+    # .Delete() on each works, but we want confirmation for each or for all.
+    if ($null -ne $doomed) {
+        Remove-Item -LiteralPath $doomed -Confirm
     }
 }
 
