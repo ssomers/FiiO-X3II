@@ -90,12 +90,12 @@ class Covets {
     }
 
     [bool] IsUseful() {
-        return $null -ne $this.default -Or $this.per_name.Count
+        return $null -ne $this.default -or $this.per_name.Count
     }
 
     [bool] DoesNotExclude([string]$name) {
         $private:covet = $this.per_name[$name]
-        return $null -eq $covet -Or $covet.treatment -ne "ignore"
+        return $null -eq $covet -or $covet.treatment -ne "ignore"
     }
 
     [Covet] GetCovet([string]$name) {

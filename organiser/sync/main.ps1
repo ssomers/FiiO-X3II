@@ -4,7 +4,14 @@ using module .\covets.psm1
 using module .\IoUtils.psm1
 Set-StrictMode -Version latest
 
-$ErrorActionPreference = "Inquire" # "Break"
+# $ErrorActionPreference = "Inquire" # "Break"
+
+enum SyncMode {
+    publish_changes
+    register_removes
+    clean_up
+}
+$modes = $args | ForEach-Object { [SyncMode] $_ }
 
 New-Variable -Option Constant FolderSrc -Value "src"
 New-Variable -Option Constant FolderDst -Value "X3"
@@ -12,7 +19,7 @@ New-Variable -Option Constant AbsFolderSrc -Value (Resolve-Path -LiteralPath $Fo
 New-Variable -Option Constant AbsFolderDst -Value (Resolve-Path -LiteralPath $FolderDst).Path
 
 New-Variable -Option Constant FfmpegQuality -Value 7
-New-Variable -Option Constant FfmpegJobs -Value ([Environment]::ProcessorCount - 1)
+New-Variable -Option Constant FfmpegJobs -Value ([Environment]::ProcessorCount)
 New-Variable -Option Constant FfmpegDate_hdcd -Value ([datetime]"2023-03-03")
 New-Variable -Option Constant FfmpegDate_bass -Value ([datetime]"2024-05-21")
 New-Variable -Option Constant FfmpegDate_by_mix -Value @{
@@ -47,9 +54,10 @@ function Update-FileFromSrc {
         "copy" {
             if (-not (Test-Path -LiteralPath $dst_path)) {
                 Write-Host "Linking $dst_path"
-                New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) | Out-Null
+                New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape([WildcardPattern]::Escape($src_path))) | Out-Null
+                # https://github.com/PowerShell/PowerShell/issues/6232#issuecomment-813860059
             }
-            elseif ([IoUtils]::IsSameFile($src_path, $dst_path)) {
+            elseif ([IoUtils]::IsSameFile($src_path, $dst_path_abs)) {
                 #Write-Host "Keeping $dst_path"
             }
             else {
@@ -61,7 +69,8 @@ function Update-FileFromSrc {
                 else {
                     Write-Host "Re-linking $dst_path"
                 }
-                New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape($src_path)) -Force | Out-Null
+                New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape([WildcardPattern]::Escape($src_path))) -Force | Out-Null
+                # https://github.com/PowerShell/PowerShell/issues/6232#issuecomment-813860059
             }
         }
         "convert" {
@@ -262,13 +271,7 @@ function Update-FolderDst {
     }
 }
 
-enum Mode {
-    publish_changes
-    register_removes
-    clean_up
-}
-foreach ($arg in $args) {
-    $mode = [Mode] $arg
+foreach ($mode in $modes) {
     $doomed = switch ($mode) {
         "clean_up" {
             # Full recursion in Dst but only reporting progress on the 1st level
