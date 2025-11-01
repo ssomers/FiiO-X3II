@@ -4,7 +4,7 @@ using module .\covets.psm1
 using module .\IoUtils.psm1
 Set-StrictMode -Version latest
 
-# $ErrorActionPreference = "Inquire" # "Break"
+$ErrorActionPreference = "Inquire" # "Break"
 
 enum SyncMode {
     publish_changes
@@ -12,17 +12,23 @@ enum SyncMode {
     clean_up
 }
 $modes = $args | ForEach-Object { [SyncMode] $_ }
+if ($null -eq $modes) {
+    Write-Host "Tell me what to do: any of publish_changes, register_removes, clean_up"
+}
 
-New-Variable -Option Constant FolderSrc -Value "src"
-New-Variable -Option Constant FolderDst -Value "X3"
-New-Variable -Option Constant AbsFolderSrc -Value (Resolve-Path -LiteralPath $FolderSrc).Path
-New-Variable -Option Constant AbsFolderDst -Value (Resolve-Path -LiteralPath $FolderDst).Path
+# `New-Variable -Option Constant` is barely usable in VS Code and plain `New-Variable` too,
+# so using plain variables for constants.
+$FolderSrc = "src"
+$FolderDst = "X3"
+$ImageName = "folder.jpg"
+$AbsFolderSrc = (Resolve-Path -LiteralPath $FolderSrc).Path
+$AbsFolderDst = (Resolve-Path -LiteralPath $FolderDst).Path
 
-New-Variable -Option Constant FfmpegQuality -Value 7
-New-Variable -Option Constant FfmpegJobs -Value ([Environment]::ProcessorCount)
-New-Variable -Option Constant FfmpegDate_hdcd -Value ([datetime]"2023-03-03")
-New-Variable -Option Constant FfmpegDate_bass -Value ([datetime]"2024-05-21")
-New-Variable -Option Constant FfmpegDate_by_mix -Value @{
+$FfmpegQuality = 7
+$FfmpegJobs = [Environment]::ProcessorCount
+$FfmpegDate_hdcd = [datetime]"2023-03-03"
+$FfmpegDate_bass = [datetime]"2024-05-21"
+$FfmpegDate_by_mix = @{
     [ChannelMix] "mix_xfeed" = [datetime]"2023-04-20"
     [ChannelMix] "mix_mono"  = [datetime]"2023-03-03"
     [ChannelMix] "mix_left"  = [datetime]"2023-03-03"
@@ -54,14 +60,13 @@ function Update-FileFromSrc {
         "copy" {
             if (-not (Test-Path -LiteralPath $dst_path)) {
                 Write-Host "Linking $dst_path"
-                New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape([WildcardPattern]::Escape($src_path))) | Out-Null
-                # https://github.com/PowerShell/PowerShell/issues/6232#issuecomment-813860059
+                New-Item -ItemType "HardLink" -Path $dst_path -Target ([IoUtils]::LinkTarget($src_path)) | Out-Null
             }
             elseif ([IoUtils]::IsSameFile($src_path, $dst_path_abs)) {
                 #Write-Host "Keeping $dst_path"
             }
             else {
-                if ((Get-FileHash $src_path).Hash -ne (Get-FileHash $dst_path).Hash) {
+                if ((Get-FileHash -LiteralPath $src_path).Hash -ne (Get-FileHash -LiteralPath $dst_path).Hash) {
                     Rename-Item $dst_path "$dst_name.prev"
                     Write-Output "$dst_path.prev"
                     Write-Host "Linking changed $dst_path"
@@ -69,8 +74,7 @@ function Update-FileFromSrc {
                 else {
                     Write-Host "Re-linking $dst_path"
                 }
-                New-Item -ItemType "HardLink" -Path $dst_path -Target ([WildcardPattern]::Escape([WildcardPattern]::Escape($src_path))) -Force | Out-Null
-                # https://github.com/PowerShell/PowerShell/issues/6232#issuecomment-813860059
+                New-Item -ItemType "HardLink" -Path $dst_path -Target ([IoUtils]::LinkTarget($src_path)) -Force | Out-Null
             }
         }
         "convert" {
@@ -275,7 +279,7 @@ foreach ($mode in $modes) {
     $doomed = switch ($mode) {
         "clean_up" {
             # Full recursion in Dst but only reporting progress on the 1st level
-            $diritems = Get-ChildItem $FolderDst -Directory
+            $diritems = @(Get-ChildItem $FolderDst -Directory)
             0..($diritems.Count - 1) | ForEach-Object {
                 $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
                 $dir = $diritems[$_]
@@ -287,8 +291,7 @@ foreach ($mode in $modes) {
         default {
             # Full recursion in Src but only reporting progress on the 2nd level
             Write-Progress -Activity "Looking in folder" -Status $FolderSrc -PercentComplete -1
-            $diritems = Get-ChildItem $FolderSrc -Directory
-            | Get-ChildItem -Directory
+            $diritems = @(Get-ChildItem $FolderSrc -Directory | Get-ChildItem -Directory)
             0..($diritems.Count - 1) | ForEach-Object {
                 $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
                 $dir = $diritems[$_]
@@ -300,7 +303,7 @@ foreach ($mode in $modes) {
     }
     # Remove-Item does not delete streamed IO.FileInfo instances if their path contains
     # wildcard characters.
-    # .Delete() on each works, but we want confirmation for each or for all.
+    # .Delete() on each works, but we want confirmation "all" to work on all.
     if ($null -ne $doomed) {
         Remove-Item -LiteralPath $doomed -Confirm
     }

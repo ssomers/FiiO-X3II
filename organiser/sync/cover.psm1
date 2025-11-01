@@ -1,12 +1,11 @@
-New-Variable -Option Constant ImageName -Value "folder.jpg"
-New-Variable -Option Constant ImageQuality -Value 95
-New-Variable -Option Constant ImageWidth -Value 320
-New-Variable -Option Constant ImageHeight -Value 224
-New-Variable -Option Constant InsetHeight -Value 224
+$ImageQuality = 95
+$ImageWidth = 320
+$ImageHeight = 224
+$InsetHeight = 224
 
 Add-Type -AssemblyName System.Drawing
-New-Variable -Option Constant jpegCodec -Value ([Drawing.Imaging.ImageCodecInfo]::GetImageEncoders().Where{ $_.FormatDescription -EQ "JPEG" }[0])
-New-Variable -Option Constant jpegParams -Value ([Drawing.Imaging.EncoderParameters]::new())
+$jpegCodec = [Drawing.Imaging.ImageCodecInfo]::GetImageEncoders().Where{ $_.FormatDescription -eq "JPEG" }[0]
+$jpegParams = [Drawing.Imaging.EncoderParameters]::new()
 $jpegParams.Param[0] = [Drawing.Imaging.EncoderParameter]::new([Drawing.Imaging.Encoder]::Quality, $ImageQuality)
 
 function Convert-Cover {
@@ -52,7 +51,7 @@ function Convert-Cover {
         $OldDstBytes = [byte[]] @()
         $change = "Creating"
     }
-    if ($OldDstBytes.Length -ne $NewDstBytes.Length -Or
+    if ($OldDstBytes.Length -ne $NewDstBytes.Length -or
         [msvcrt]::memcmp($OldDstBytes, $NewDstBytes, $NewDstBytes.Length) -ne 0) {
         Write-Host "$change $DstPath"
         [IO.File]::WriteAllBytes($DstPathAbs, $NewDstBytes)
@@ -62,4 +61,4 @@ function Convert-Cover {
     }
 }
 
-Export-ModuleMember -Function Convert-Cover -Variable ImageName
+Export-ModuleMember -Function Convert-Cover

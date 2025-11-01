@@ -32,10 +32,15 @@ class IoUtils {
         return $fileIdInfo
     }
 
-    static [bool] IsSameFile([string] $InPath1, $InPath2) {
-        $fileIdInfo1 = [IoUtils]::GetFileIdInfo($InPath1)
-        $fileIdInfo2 = [IoUtils]::GetFileIdInfo($InPath2)
-        return $fileIdInfo2.VolumeSerialNumber -eq $fileIdInfo1.VolumeSerialNumber
-        -and [msvcrt]::memcmp($fileIdInfo1.FileId, $fileIdInfo2.FileId, 16) -eq 0
+    static [bool] IsSameFile([string] $InPath1, [string] $InPath2) {
+        $private:fileIdInfo1 = [IoUtils]::GetFileIdInfo($InPath1)
+        $private:fileIdInfo2 = [IoUtils]::GetFileIdInfo($InPath2)
+        return $fileIdInfo2.VolumeSerialNumber -eq $fileIdInfo1.VolumeSerialNumber -and
+        [msvcrt]::memcmp($fileIdInfo1.FileId, $fileIdInfo2.FileId, 16) -eq 0
+    }
+
+    static [string] LinkTarget([string] $InPath) {
+        # https://github.com/PowerShell/PowerShell/issues/6232#issuecomment-813860059
+        return [WildcardPattern]::Escape([WildcardPattern]::Escape($InPath))
     }
 }
