@@ -4,7 +4,7 @@ using module .\covets.psm1
 using module .\IoUtils.psm1
 Set-StrictMode -Version latest
 
-$ErrorActionPreference = "Inquire" # "Break"
+$ErrorActionPreference = "Break"
 
 enum SyncMode {
     publish_changes
@@ -20,7 +20,8 @@ if ($null -eq $modes) {
 # so using plain variables for constants.
 $FolderSrc = "src"
 $FolderDst = "X3"
-$ImageName = "folder.jpg"
+$ImageNamesSrc = "cover.jpg", "cover.jpeg", "cover.png", "cover.webp"
+$ImageNameDst = "folder.jpg"
 $AbsFolderSrc = (Resolve-Path -LiteralPath $FolderSrc).Path
 $AbsFolderDst = (Resolve-Path -LiteralPath $FolderDst).Path
 
@@ -33,6 +34,10 @@ $FfmpegDate_by_mix = @{
     [ChannelMix] "mix_mono"  = [datetime]"2023-03-03"
     [ChannelMix] "mix_left"  = [datetime]"2023-03-03"
     [ChannelMix] "mix_right" = [datetime]"2023-03-03"
+}
+
+if ($ImageNameDst -in $ImageNamesSrc) {
+    throw "How is Update-FolderDst supposed to clean up then?"
 }
 
 function Build-Destination {
@@ -128,6 +133,7 @@ function Update-FileFromSrc {
     }
 }
 
+# Outputs doomed IO.FileSystemInfo instances
 function Update-FolderSrc {
     process {
         $private:diritem = [IO.DirectoryInfo] $_
@@ -157,8 +163,8 @@ function Update-FolderSrc {
                         "unknown" { Write-Warning "Unknown $src_path" }
                         "ignore" {}
                         "cover" {
-                            $private:dst_path = Join-Path $dst_folder $ImageName
-                            $private:dst_path_abs = Join-Path $dst_folder_abs $ImageName
+                            $private:dst_path = Join-Path $dst_folder $ImageNameDst
+                            $private:dst_path_abs = Join-Path $dst_folder_abs $ImageNameDst
                             switch ($mode) {
                                 "publish_changes" {
                                     Build-Destination $dst_folder
@@ -233,6 +239,7 @@ function Update-FolderSrc {
     }
 }
 
+# Outputs doomed IO.FileSystemInfo instances
 function Update-FolderDst {
     process {
         $diritem = [IO.DirectoryInfo] $_
@@ -242,32 +249,29 @@ function Update-FolderDst {
             $covet_path = Join-Path $src_folder "covet.txt"
             $covets = [Covets]::Read($covet_path)
 
-            $diritem.EnumerateFiles() |
-                ForEach-Object {
-                    if ($_.Name.StartsWith("cover.")) {
-                        Write-Output $_
-                    }
-                    else {
-                        $justifying_names = if ($_.Name -eq $ImageName) {
-                            "cover.jpg", "cover.jpeg", "cover.png", "cover.webp"
-                        }
-                        else {
-                            $_.Name,
-                            ($_.BaseName + ".ac3"),
-                            ($_.BaseName + ".flac"),
-                            ($_.BaseName + ".webm"),
-                            ($_.BaseName + ".m4a"),
-                            ($_.BaseName + ".mp2"),
-                            ($_.BaseName + ".mp3"),
-                            ($_.BaseName + ".ogg"),
-                            ($_.BaseName + ".wma") | Where-Object { $covets.DoesNotExclude($_) }
-                        }
-                        $justifying_paths = $justifying_names | ForEach-Object { Join-Path $src_folder $_ }
-                        if ((Test-Path -LiteralPath $justifying_paths) -notcontains $true) {
-                            Write-Output $_
-                        }
+            $diritem.EnumerateFiles() | ForEach-Object {
+                $private:dst = $_
+                $private:justifying_names = switch ($dst.Name) {
+                    $ImageNameDst { $ImageNamesSrc }
+                    { $_ -in $ImageNamesSrc } {}
+                    default {
+                        $dst.Name,
+                        ($dst.BaseName + ".ac3"),
+                        ($dst.BaseName + ".flac"),
+                        ($dst.BaseName + ".webm"),
+                        ($dst.BaseName + ".m4a"),
+                        ($dst.BaseName + ".mp2"),
+                        ($dst.BaseName + ".mp3"),
+                        ($dst.BaseName + ".ogg"),
+                        ($dst.BaseName + ".wma") | Where-Object { $covets.DoesNotExclude($_) }
                     }
                 }
+                $private:justifying_paths = $justifying_names | ForEach-Object { Join-Path $src_folder $_ }
+                if ($null -eq $justifying_paths -or (Test-Path -LiteralPath $justifying_paths) -notcontains $true) {
+                    Write-Output $_
+                }
+            }
+            $diritem.EnumerateDirectories() | Update-FolderDst
         }
         else {
             Write-Output $_
@@ -278,14 +282,14 @@ function Update-FolderDst {
 foreach ($mode in $modes) {
     $doomed = switch ($mode) {
         "clean_up" {
-            # Full recursion in Dst but only reporting progress on the 1st level
+            # No recursion in Dst because we want either depth first, or skip deeper paths
             $diritems = @(Get-ChildItem $FolderDst -Directory)
             0..($diritems.Count - 1) | ForEach-Object {
                 $pct = 1 + $_ / $diritems.Count * 99 # start at 1 because 0 draws as 100
                 $dir = $diritems[$_]
                 $dst_folder = $FolderDst + [IoUtils]::GetPathSuffix($AbsFolderDst, $dir)
                 Write-Progress -Activity "Looking for spurious files" -Status $dst_folder -PercentComplete $pct
-                Get-ChildItem $dir -Directory -Recurse
+                $dir
             } | Update-FolderDst
         }
         default {
