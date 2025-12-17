@@ -99,7 +99,7 @@ function Update-FileFromSrc {
                 if ($covet.bass) {
                     $filters += "bass=gain=9"
                 }
-                $filters += "aformat=sample_rates=88200|48000|44100|32000|24000|22050|16000|12000|11025|8000|7350"
+                $filters += "aformat=sample_rates=96000|88200|48000|44100|32000|24000|22050|16000|12000|11025|8000|7350"
                 $filters += "volume=replaygain=album"
                 $ffmpeg_arglist += "-filter:a", "`"$($filters -join ",")`""
                 $ffmpeg_arglist += "-q:a", $FfmpegQuality
