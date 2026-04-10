@@ -309,6 +309,7 @@ func main() {
 	generate(filepath.Join("..", "changes_generated", "litegui", "theme1", "adjust", "volume_scale_focus.png"), 0, 0, nil, func(i int) draw.Image {
 		bounds := image.Rect(0, 0, 118, 118)
 		img := image.NewRGBA(bounds)
+		warning_level := 101
 		steps := 120
 		var s slice
 		s.center = bounds.Min.Add(bounds.Max.Div(2))
@@ -327,11 +328,11 @@ func main() {
 				b += 2 * math.Pi
 			}
 			var fg color.Color
-			if j < 100 {
-				c := 1 - float64(99-j)*0.004
+			if j < warning_level {
+				c := 0.5 + 0.5 * float64(j) / float64(warning_level-1)
 				fg = color.RGBA{uint8(math.Ceil(c * 0x99)), uint8(math.Ceil(c * 0xFF)), 0x00, 0xFF} // topbar_volume_color
 			} else {
-				c := 1 - float64(j-100)/20.0
+				c := 1 - float64(j - warning_level) / float64(steps - warning_level)
 				fg = color.RGBA{0xFF, uint8(math.Ceil(c * 0x82)), uint8(math.Ceil(0x34)), 0xFF} // topbar_volume_warnning_color
 			}
 			s.angleA = a
