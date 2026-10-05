@@ -53,15 +53,14 @@ function Build-Destination {
 
 function Update-FileFromSrc {
     param (
-        [Covet] $covet,
         [string] $src_path,
         [DateTime] $src_LastWriteTime,
-        [string] $dst_name,
+        [DstInfo] $dst_info,
         [string] $dst_path,
         [string] $dst_path_abs
     )
 
-    switch ($covet.treatment) {
+    switch ($dst_info.Covet.treatment) {
         "copy" {
             if (-not (Test-Path -LiteralPath $dst_path)) {
                 Write-Host "Linking $dst_path"
@@ -72,7 +71,7 @@ function Update-FileFromSrc {
             }
             else {
                 if ((Get-FileHash -LiteralPath $src_path).Hash -ne (Get-FileHash -LiteralPath $dst_path).Hash) {
-                    Rename-Item $dst_path "$dst_name.prev"
+                    Rename-Item $dst_path "${dst_info.DstName}.prev"
                     Write-Output "$dst_path.prev"
                     Write-Host "Linking changed $dst_path"
                 }
@@ -83,25 +82,25 @@ function Update-FileFromSrc {
             }
         }
         "convert" {
-            $private:times = $src_LastWriteTime, $FfmpegDate_by_mix[$covet.mix]
-            if ($covet.hdcd) { $times += $FfmpegDate_hdcd }
-            if ($covet.bass) { $times += $FfmpegDate_bass }
+            $private:times = $src_LastWriteTime, $FfmpegDate_by_mix[$dst_info.Covet.mix]
+            if ($dst_info.Covet.hdcd) { $times += $FfmpegDate_hdcd }
+            if ($dst_info.Covet.bass) { $times += $FfmpegDate_bass }
             $private:dst = Get-Item -LiteralPath $dst_path -ErrorAction:SilentlyContinue
             if ($null -eq $dst -or -not $dst.Length -or ($times -gt $dst.LastWriteTime).Count) {
                 $private:ffmpeg_arglist = [Collections.Generic.List[string]]::new()
                 $private:filters = [Collections.Generic.List[string]]::new()
                 $ffmpeg_arglist += "-loglevel", "warning"
                 $ffmpeg_arglist += "-i", "`"$src_path`""
-                if ($covet.hdcd) {
+                if ($dst_info.Covet.hdcd) {
                     $filters += "hdcd=disable_autoconvert=0"
                 }
-                switch ($covet.mix) {
+                switch ($dst_info.Covet.mix) {
                     "mix_xfeed" { $filters += "crossfeed=level_in=1:strength=.5" }
                     "mix_left" { $filters += "pan=mono|c0=FL" }
                     "mix_rght" { $filters += "pan=mono|c0=FR" }
                     "mix_mono" { $ffmpeg_arglist += "-ac", 1 }
                 }
-                if ($covet.bass) {
+                if ($dst_info.Covet.bass) {
                     $filters += "bass=gain=9"
                 }
                 $filters += "aformat=sample_rates=96000|88200|48000|44100|32000|24000|22050|16000|12000|11025|8000|7350"
@@ -155,11 +154,10 @@ function Update-FolderSrc {
                 ForEach-Object {
                     $private:src_path = $_.FullName
                     $private:src_name = $_.Name
-                    $private:src_basename = $_.BaseName
                     $private:src_LastWriteTime = $_.LastWriteTime
                     [void] $names_unused.Remove($src_name)
-                    $private:treatment = Get-DefaultTreatment $src_name
-                    switch ($treatment) {
+                    $private:dst_info = $covets.GetDstInfo($src_name)
+                    switch ($dst_info.Covet.treatment) {
                         "unknown" { Write-Warning "Unknown $src_path" }
                         "ignore" {}
                         "cover" {
@@ -177,25 +175,15 @@ function Update-FolderSrc {
                             }
                         }
                         default {
-                            $private:covet = $covets.GetCovet($src_name)
-                            if ($null -eq $covet) {
-                                $covet = [Covet]::new($treatment)
-                            }
-                            $private:dst_name = switch ($covet.treatment) {
-                                "copy" { $src_name }
-                                "convert" { $src_basename + ".m4a" }
-                                "ignore" { $null }
-                                default { throw }
-                            }
-                            if ($null -ne $dst_name) {
+                            if ($null -ne $dst_info.DstName) {
                                 $src_count += 1
                                 $dst_count += 1
-                                $private:dst_path = Join-Path $dst_folder $dst_name
-                                $private:dst_path_abs = Join-Path $dst_folder_abs $dst_name
+                                $private:dst_path = Join-Path $dst_folder $dst_info.DstName
+                                $private:dst_path_abs = Join-Path $dst_folder_abs $dst_info.DstName
                                 switch ($mode) {
                                     "publish_changes" {
                                         Build-Destination $dst_folder
-                                        Update-FileFromSrc $covet $src_path $src_LastWriteTime $dst_name $dst_path $dst_path_abs
+                                        Update-FileFromSrc $src_path $src_LastWriteTime $dst_info $dst_path $dst_path_abs
                                     }
                                     "register_removes" {
                                         if (-not (Test-Path -LiteralPath $dst_path)) {
@@ -263,7 +251,10 @@ function Update-FolderDst {
                         ($dst.BaseName + ".mp2"),
                         ($dst.BaseName + ".mp3"),
                         ($dst.BaseName + ".ogg"),
-                        ($dst.BaseName + ".wma") | Where-Object { $covets.DoesNotExclude($_) }
+                        ($dst.BaseName + ".wma") | Where-Object {
+                            $private:dst_info = $covets.GetDstInfo($_)
+                            $dst.Name -eq $dst_info.DstName
+                        }
                     }
                 }
                 $private:justifying_paths = $justifying_names | ForEach-Object { Join-Path $src_folder $_ }

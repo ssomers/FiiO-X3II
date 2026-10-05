@@ -29,6 +29,7 @@ class Covet {
     [Boolean]$hdcd
     [Boolean]$bass
     [ChannelMix]$mix
+
     Covet([Treatment]$treatment) {
         $this.treatment = $treatment
         $this.hdcd = $false
@@ -80,6 +81,11 @@ class Covet {
     }
 }
 
+class DstInfo {
+    [Covet] $Covet
+    [string] $DstName
+}
+
 class Covets {
     [Covet]$default
     [Collections.Generic.Dictionary[string, Covet]] $per_name
@@ -93,11 +99,6 @@ class Covets {
         return $null -ne $this.default -or $this.per_name.Count
     }
 
-    [bool] DoesNotExclude([string]$name) {
-        $private:covet = $this.per_name[$name]
-        return $null -eq $covet -or $covet.treatment -ne "ignore"
-    }
-
     [Covet] GetCovet([string]$name) {
         $private:covet = $this.per_name[$name]
         if ($null -ne $covet) {
@@ -106,6 +107,49 @@ class Covets {
         else {
             return $this.default
         }
+    }
+
+    [DstInfo] GetDstInfo([string] $name) {
+        $private:result = [DstInfo]::new()
+        [Treatment]$private:treatment = switch -Wildcard ($name) {
+            "*.old.*" { "ignore"; break }
+            "*.raw.*" { "ignore"; break }
+            "cover.*" { "cover"; break }
+            "*.iso" { "ignore" }
+            "*.llc" { "ignore" }
+            "*.mp4" { "ignore" }
+            "*.pdf" { "ignore" }
+            "*.txt" { "ignore" }
+            "*.jpg" { "ignore" }
+            "*.m4a" { "copy" }
+            "*.mp2" { "copy" }
+            "*.mp3" { "copy" }
+            "*.ogg" { "copy" }
+            "*.wma" { "copy" }
+            "*.ac3" { "convert" }
+            "*.flac" { "convert" }
+            "*.webm" { "convert" }
+            default { "unknown" }
+        }
+        $result.Covet = [Covet]::new($treatment)
+        switch ($treatment) {
+            "unknown" {}
+            "ignore" {}
+            "cover" {}
+            default {
+                $private:covet = $this.GetCovet($name)
+                if ($null -ne $covet) {
+                    $result.Covet = $covet
+                }
+                $result.DstName = switch ($result.Covet.treatment) {
+                    "copy" { $name }
+                    "convert" { ([System.IO.FileInfo]$name).BaseName + ".m4a" }
+                    "ignore" { $null }
+                    default { throw }
+                }
+            }
+        }
+        return $result
     }
 
     static [Covets] Read([string] $InPath) {
@@ -166,32 +210,4 @@ class Covets {
             Write-Output "$symbols $name"
         } | Set-Content -LiteralPath $OutPath -Encoding UTF8
     }
-}
-
-function Get-DefaultTreatment {
-    param (
-        [string] $Filename
-    )
-
-    [Treatment]$private:treatment = switch -Wildcard ($Filename) {
-        "*.old.*" { "ignore"; break }
-        "*.raw.*" { "ignore"; break }
-        "cover.*" { "cover"; break }
-        "*.iso" { "ignore" }
-        "*.llc" { "ignore" }
-        "*.mp4" { "ignore" }
-        "*.pdf" { "ignore" }
-        "*.txt" { "ignore" }
-        "*.jpg" { "ignore" }
-        "*.m4a" { "copy" }
-        "*.mp2" { "copy" }
-        "*.mp3" { "copy" }
-        "*.ogg" { "copy" }
-        "*.wma" { "copy" }
-        "*.ac3" { "convert" }
-        "*.flac" { "convert" }
-        "*.webm" { "convert" }
-        default { "unknown" }
-    }
-    $treatment
 }
