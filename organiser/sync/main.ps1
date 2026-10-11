@@ -4,7 +4,7 @@ using module .\covets.psm1
 using module .\IoUtils.psm1
 Set-StrictMode -Version latest
 
-$ErrorActionPreference = "Break"
+$ErrorActionPreference = "Stop"
 
 enum SyncMode {
     publish_changes
