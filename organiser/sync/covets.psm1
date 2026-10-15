@@ -110,7 +110,6 @@ class Covets {
     }
 
     [DstInfo] GetDstInfo([string] $name) {
-        $private:result = [DstInfo]::new()
         [Treatment]$private:treatment = switch -Wildcard ($name) {
             "*.old.*" { "ignore"; break }
             "*.raw.*" { "ignore"; break }
@@ -131,6 +130,7 @@ class Covets {
             "*.webm" { "convert" }
             default { "unknown" }
         }
+        $private:result = [DstInfo]::new()
         $result.Covet = [Covet]::new($treatment)
         switch ($treatment) {
             "unknown" {}

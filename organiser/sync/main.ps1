@@ -71,7 +71,7 @@ function Update-FileFromSrc {
             }
             else {
                 if ((Get-FileHash -LiteralPath $src_path).Hash -ne (Get-FileHash -LiteralPath $dst_path).Hash) {
-                    Rename-Item $dst_path "${dst_info.DstName}.prev"
+                    Rename-Item $dst_path "$(dst_info.DstName).prev"
                     Write-Output "$dst_path.prev"
                     Write-Host "Linking changed $dst_path"
                 }
